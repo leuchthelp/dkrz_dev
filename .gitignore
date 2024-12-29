@@ -4058,3 +4058,4 @@ data/test_dataset.zarr/z/15.4.4.0
 Pipfile
 data/test_dataset.hdf5
 data/test_dataset.h5
+data/test_dataset.zarr/zarr.json
