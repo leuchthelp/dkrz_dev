@@ -1,3 +1,4 @@
+func/__pycache__/
 .venv/
 data/datasets/
 .spack-env/
@@ -16817,3 +16818,10 @@ get-pip.py
 .spack-env/._view/hrbxfqvrmogbonlht62czpqdrwanot77/include/python3.11/internal/pycore_warnings.h
 spack.lock
 spack.yaml
+bench_complete_hdf5_test.txt
+bench_complete_netcdf4_test.txt
+bench_complete_zarr_test.txt
+text.txt
+func/__pycache__/datastruct.cpython-311.pyc
+func/__pycache__/datastruct.cpython-311.pyc
+func/__pycache__/datastruct.cpython-311.pyc
