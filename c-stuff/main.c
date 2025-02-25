@@ -34,6 +34,30 @@ void save_to_json(double *arr, char *file_name, char *name, size_t size)
     fclose(fptr);
 }
 
+void save_list_to_json(double *arr, char *file_name, char *name, size_t size)
+{
+    FILE *fptr;
+
+    fptr = fopen(file_name, "w");
+
+    fprintf(fptr, "{\"%s\":", name);
+    fprintf(fptr, "[");
+
+    for (size_t i = 0; i < size; i++)
+    {
+        fprintf(fptr, "%f", arr[i]);
+
+        if (i != size - 1)
+        {
+            fprintf(fptr, ",");
+        }
+    }
+
+    fprintf(fptr, "]}");
+
+    fclose(fptr);
+}
+
 void create_hdf5(bool with_chunking)
 {
     hid_t plist_id, file_id, dataspace_id, dataset_id; /* file identifier */
@@ -330,6 +354,7 @@ void bench_variable_hdf5()
     }
 
     save_to_json(arr3, "test_hdf5-c.json", "hdf5-c-read", iteration);
+    //save_list_to_json(arr3, "test_hdf5-c_list.json", "hdf5-c-read", iteration);
 }
 
 void bench_variable_nczarr()
@@ -383,6 +408,7 @@ void bench_variable_nczarr()
     }
 
     save_to_json(arr3, "test_nczarr.json", "nczarr-read", iteration);
+    //save_list_to_json(arr3, "test_nczarr_list.json", "nczarr-read", iteration);
 }
 
 void bench_variable_netcdf4()
@@ -434,6 +460,7 @@ void bench_variable_netcdf4()
     }
 
     save_to_json(arr3, "test_netcdf4.json", "netcdf4-read", iteration);
+    //save_list_to_json(arr3, "test_netcdf4_list.json", "netcdf4-read", iteration);
 }
 
 void bench_variable_subfiling(int argc, char **argv)
@@ -441,7 +468,7 @@ void bench_variable_subfiling(int argc, char **argv)
     printf("Create dataset with subfiling \n");
     create_hdf5_subfiling(argc, argv);
 
-    int iteration = 100;
+    int iteration = 10;
     double arr3[iteration];
 
     printf("Bench variable complete with subfiling \n");
@@ -504,6 +531,17 @@ void bench_variable_subfiling(int argc, char **argv)
 
         status = H5Dread(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, rbuf);
 
+        int rank;
+        MPI_Comm_rank(comm, &rank);
+
+        if (rank == 0)
+        {
+            for (int i = 0; i < some_size; i++)
+            {
+                //printf("float: %f \n", rbuf[i]);
+            }
+        }
+
         status = H5Dclose(dataset_id);
         status = H5Fclose(file_id);
         status = H5Pclose(fapl_id);
@@ -516,6 +554,7 @@ void bench_variable_subfiling(int argc, char **argv)
         free(rbuf);
     }
     save_to_json(arr3, "test_hdf5_subfiling.json", "hdf5-subfiling-read", iteration);
+    //save_list_to_json(arr3, "test_hdf5_subfiling_list.json", "hdf5-subfiling-read", iteration);
 }
 
 void bench_variable_async(int argc, char **argv)
@@ -574,6 +613,7 @@ void bench_variable_async(int argc, char **argv)
     }
 
     save_to_json(arr3, "test_hdf5-c_async.json", "hdf5-c-async-read", iteration);
+    //save_list_to_json(arr3, "test_hdf5-c_async_list.json", "hdf5-c-async-read", iteration);
 }
 
 void py_bench_variable_hdf5()
@@ -657,7 +697,7 @@ void py_bench_variable_netcdf4()
     free(rbuf);
 }
 
-void py_bench_variable_subfiling(int argc, char **argv)
+void py_bench_variable_subfiling()
 {
     H5FD_subfiling_config_t subf_config;
     H5FD_ioc_config_t ioc_config;
@@ -665,14 +705,12 @@ void py_bench_variable_subfiling(int argc, char **argv)
     MPI_Info info = MPI_INFO_NULL;
     hid_t fapl_id = H5I_INVALID_HID;
 
-    int mpi_thread_required = MPI_THREAD_MULTIPLE;
-    int mpi_thread_provided = 0;
-    /* Initialize MPI with threading support */
-    MPI_Init_thread(&argc, &argv, mpi_thread_required, &mpi_thread_provided);
+    hid_t file_id, dataset_id;
+    herr_t status;
 
     fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-    H5Pset_mpi_params(fapl_id, comm, info);
-
+    status = H5Pset_mpi_params(fapl_id, comm, info);
+    
     /*
      * Get a default Subfiling and IOC configuration
      */
@@ -687,6 +725,7 @@ void py_bench_variable_subfiling(int argc, char **argv)
     int size;
     MPI_Comm_size(comm, &size);
 
+    printf("size: %d ", size);
     subf_config.shared_cfg.stripe_count = size; // size;
     /*
      * Set IOC configuration to use 2 worker threads
@@ -707,8 +746,6 @@ void py_bench_variable_subfiling(int argc, char **argv)
 
     H5Pset_alignment(fapl_id, 0, 1048576);
 
-    hid_t file_id, dataset_id;
-    herr_t status;
     int some_size = 134217728;
     float *rbuf = calloc(some_size, sizeof(float));
 
@@ -717,18 +754,31 @@ void py_bench_variable_subfiling(int argc, char **argv)
 
     status = H5Dread(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, rbuf);
 
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    printf("status: %d and rank: %d \n", status, rank);
+
+    if (rank == 0)
+    {
+        for (int i = 0; i < some_size; i++)
+        {
+            //printf("float: %f \n", rbuf[i]);
+        }
+    }
+
     status = H5Dclose(dataset_id);
     status = H5Fclose(file_id);
     status = H5Pclose(fapl_id);
     free(rbuf);
 }
 
-void py_bench_variable_async(int argc, char **argv)
+void py_bench_variable_async()
 {
-    int mpi_thread_required = MPI_THREAD_MULTIPLE;
-    int mpi_thread_provided = 0;
+    // int mpi_thread_required = MPI_THREAD_MULTIPLE;
+    // int mpi_thread_provided = 0;
     /* Initialize MPI with threading support */
-    MPI_Init_thread(&argc, &argv, mpi_thread_required, &mpi_thread_provided);
+    // MPI_Init_thread(&argc, &argv, mpi_thread_required, &mpi_thread_provided);
 
     herr_t es_id;
     es_id = H5EScreate();
@@ -764,44 +814,10 @@ void py_bench_variable_async(int argc, char **argv)
 int main(int argc, char **argv)
 {
 
-    /*
-    bench_variable_subfiling(argc, argv);
-
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    if (rank == 0)
-    {
-        printf("Create hdf5 file \n");
-        create_hdf5(false);
-        printf("Bench hdf5 variable \n");
-        bench_variable();
-    }
-    */
-
-    // printf("Bench nczarr \n");
-    // bench_variable_netcdf4();
-
-    // printf("Bench hdf5 variable async \n");
-    //  create_hdf5_async(argc, argv, false);
-    //   create_hdf5(false);
-    bench_variable_async(argc, argv);
-
-    // bench_variable_netcdf4();
-    // bench_variable_nczarr();
-
-    // py_bench_variable_async(argc, argv);
-
-    // printf("Bench hdf5 \n");
-    // py_bench_variable_hdf5();
-    //
-    // printf("Bench netcdf4 \n");
-    // py_bench_variable_netcdf4();
-
-    // create_hdf5_subfiling(argc, argv);
-
-    // printf("Bench subfiling \n");
-    // py_bench_variable_subfiling(argc, argv);
-    //
-    // MPI_Finalize();
+    //bench_variable_hdf5(false);
+    //bench_variable_netcdf4(false);
+    //bench_variable_subfiling(argc, argv);
+    //bench_variable_async(argc, argv);
+    //MPI_Finalize();
     return 0;
 }
