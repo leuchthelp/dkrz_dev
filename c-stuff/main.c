@@ -240,6 +240,12 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, int size)
     /* Initialize MPI with threading support */
     MPI_Init_thread(&argc, &argv, mpi_thread_required, &mpi_thread_provided);
 
+    int rrank, ssize;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rrank);
+    MPI_Comm_size(MPI_COMM_WORLD, &ssize);
+
+    printf("MPI Rank = %d, MPI Size = %d\n", rrank, ssize);
+
     es_id = H5EScreate();
 
     /* Create a new file using default properties. */
@@ -252,6 +258,11 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, int size)
     dataspace_id = H5Screate_simple(1, dims, NULL);
 
     plist_id = H5Pcreate(H5P_DATASET_CREATE);
+
+    MPI_Comm comm = MPI_COMM_WORLD;
+    MPI_Info info = MPI_INFO_NULL;
+
+    H5Pset_fapl_mpio(plist_id, comm, info);
 
     if (with_chunking)
     {
@@ -272,7 +283,7 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, int size)
         exit(EXIT_FAILURE);
     }
 
-    int i, j, k;
+    int i;
 
     for (i = 0; i < some_size; i++)
     {
@@ -758,11 +769,6 @@ void py_bench_variable_async()
     int some_size = 134217728;
     float *rbuf = calloc(some_size, sizeof(float));
 
-    int rank;
-    MPI_Comm comm = MPI_COMM_WORLD;
-    MPI_Comm_rank(comm, &rank);
-    // printf("rank: %d \n", rank);
-
     file_id = H5Fopen_async("data/datasets/test_dataset_hdf5-c.h5", H5F_ACC_RDONLY, H5P_DEFAULT, es_id);
     dataset_id = H5Dopen_async(file_id, "/X", H5P_DEFAULT, es_id);
 
@@ -826,6 +832,10 @@ static struct argp_option options[] = {
 int main(int argc, char **argv)
 {
 
+    create_hdf5_async(argc, argv, false, 134217728);
+    MPI_Finalize();
+
+    /*
     struct argp argp = {options, parse_opt};
 
     args_t arguments;
@@ -845,7 +855,9 @@ int main(int argc, char **argv)
 
     int size = arguments.size * arguments.factor;
     int iterations = arguments.iterations;
+    */
 
+    /*
     switch (arguments.benchmark)
     {
     case 1:
@@ -861,11 +873,16 @@ int main(int argc, char **argv)
         bench_variable_nczarr(size, iterations);
         break;
     case 4:
+        printf(ANSI_COLOR_RED "PLEASE ENSURE THIS SCRIPT IS RUN WITH MPIEXEC / MPIRUN" ANSI_COLOR_RESET "\n");
         printf(ANSI_COLOR_BLUE "Running hdf5 subfiling benchmark with a filesize of %d for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
         bench_variable_subfiling(argc, argv, size, iterations);
         MPI_Finalize();
         break;
     case 5:
+        printf(ANSI_COLOR_RED "PLEASE ENSURE THIS SCRIPT IS RUN WITH MPIEXEC / MPIRUN" ANSI_COLOR_RESET "\n");
+        printf(ANSI_COLOR_RED "ALSO ENSURE YOU LOEADED HDF5-VOL-ASYNC AND SET THE ENVIRONMENTAL VARIABLES REQUIRED CORRECTLY" ANSI_COLOR_RESET "\n");
+        printf(ANSI_COLOR_RED "FAILING TO DO SO WILL CAUSE HDF5 ERROR WHEN RUNNING WITH N>1 - PLEASE REFER TO THE README" ANSI_COLOR_RESET "\n");
+
         printf(ANSI_COLOR_BLUE "Running hdf5-vol-async benchmark with a filesize of %d for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
         bench_variable_async(argc, argv, size, iterations);
         MPI_Finalize();
@@ -875,11 +892,7 @@ int main(int argc, char **argv)
     default:
         return ARGP_ERR_UNKNOWN;
     }
+    */
 
-    //  bench_variable_hdf5(size, iterations);
-    //  bench_variable_netcdf4(false, size);
-    //  bench_variable_subfiling(argc, argv, size);
-    //  bench_variable_async(argc, argv, size);
-    //  MPI_Finalize();
     return 0;
 }
