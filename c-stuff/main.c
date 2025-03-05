@@ -215,7 +215,6 @@ void create_hdf5_parallel(int argc, char **argv, bool with_chunking, int size)
     herr_t status = -1;
     hsize_t dims[1];
     hsize_t cdims[1];
-    hsize_t mem_chunk_dims[1];
     hsize_t count[1]; /* hyperslab selection parameters */
     hsize_t offset[1];
 
@@ -258,7 +257,6 @@ void create_hdf5_parallel(int argc, char **argv, bool with_chunking, int size)
     int process_mem_size = size / mpi_size;
 
     dims[0] = size;
-    mem_chunk_dims[0] = process_mem_size;
     filespace = H5Screate_simple(1, dims, NULL);
 
     if (with_chunking)
@@ -642,8 +640,9 @@ void bench_variable_hdf5_parallel(int argc, char **argv, int size, int iteration
      * Initialize MPI
      */
 
-    int mpi_rank;
+    int mpi_size, mpi_rank;
     MPI_Comm comm = MPI_COMM_WORLD;
+    MPI_Comm_size(comm, &mpi_size);
     MPI_Comm_rank(comm, &mpi_rank);
 
     for (int i = 0; i < iteration; i++)
@@ -657,6 +656,10 @@ void bench_variable_hdf5_parallel(int argc, char **argv, int size, int iteration
         hid_t file_id = 0;
         hid_t dset_id = 0;
         herr_t status = -1;
+        hid_t filespace = 0;
+        hid_t memspace = 0;
+        hsize_t count[1]; /* hyperslab selection parameters */
+        hsize_t offset[1];
 
         /*
          * Set up file access property list with parallel I/O access
@@ -676,9 +679,20 @@ void bench_variable_hdf5_parallel(int argc, char **argv, int size, int iteration
         dset_id = H5Dopen(file_id, "/X", H5P_DEFAULT);
 
         /*
+         * Select hyperslab in the file.
+         */
+
+        int process_mem_size = size / mpi_size;
+
+        count[0] = process_mem_size;
+        offset[0] = count[0] * mpi_rank;
+        memspace = H5Screate_simple(1, count, NULL);
+
+        filespace = H5Dget_space(dset_id);
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        /*
          * Initialize data buffer
          */
-        int process_mem_size = size;
         float *rbuf = calloc(process_mem_size, sizeof(float));
 
         /*
@@ -692,7 +706,8 @@ void bench_variable_hdf5_parallel(int argc, char **argv, int size, int iteration
          *
          * H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);
          */
-        status = H5Dread(dset_id, H5T_NATIVE_FLOAT, H5S_BLOCK, H5S_ALL, plist_id, rbuf);
+
+        status = H5Dread(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, plist_id, rbuf);
 
         /*
          * Close/release resources.
@@ -712,6 +727,54 @@ void bench_variable_hdf5_parallel(int argc, char **argv, int size, int iteration
     }
 
     save_to_json(arr3, "test_hdf5-c_parallel.json", "hdf5-c-read-parallel", iteration);
+}
+
+void bench_variable_netcdf4(int size, int iteration)
+{
+    double arr3[iteration];
+
+    for (int i = 0; i < iteration; i++)
+    {
+        printf("i: %d for variable: X\n", i);
+        int ncid, varid, retval;
+        int some_size = size;
+        float *rbuf = calloc(some_size, sizeof(float));
+
+        struct timespec start, end;
+
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        if ((retval = nc_open("data/datasets/test_dataset.nc", NC_NOWRITE, &ncid)))
+        {
+            printf("failure to open file ");
+            ERR(retval);
+        }
+
+        if ((retval = nc_inq_varid(ncid, "X", &varid)))
+        {
+            printf("failure finding variable id ");
+            ERR(retval);
+        }
+
+        if ((retval = nc_get_var_float(ncid, varid, rbuf)))
+        {
+            printf("failure reading variable ");
+            ERR(retval);
+        }
+
+        if ((retval = nc_close(ncid)))
+            ERR(retval);
+
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        double elapsed = end.tv_sec - start.tv_sec;
+        elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+        arr3[i] = elapsed;
+
+        free(rbuf);
+        printf(ANSI_COLOR_GREEN "Finished" ANSI_COLOR_RESET "\n");
+    }
+
+    save_to_json(arr3, "test_netcdf4.json", "netcdf4-read", iteration);
 }
 
 void bench_variable_nczarr(int size, int iteration)
@@ -761,54 +824,6 @@ void bench_variable_nczarr(int size, int iteration)
     }
 
     save_to_json(arr3, "test_nczarr.json", "nczarr-read", iteration);
-}
-
-void bench_variable_netcdf4(int size, int iteration)
-{
-    double arr3[iteration];
-
-    for (int i = 0; i < iteration; i++)
-    {
-        printf("i: %d for variable: X\n", i);
-        int ncid, varid, retval;
-        int some_size = size;
-        float *rbuf = calloc(some_size, sizeof(float));
-
-        struct timespec start, end;
-
-        clock_gettime(CLOCK_MONOTONIC, &start);
-
-        if ((retval = nc_open("data/datasets/test_dataset.nc", NC_NOWRITE, &ncid)))
-        {
-            printf("failure to open file ");
-            ERR(retval);
-        }
-
-        if ((retval = nc_inq_varid(ncid, "X", &varid)))
-        {
-            printf("failure finding variable id ");
-            ERR(retval);
-        }
-
-        if ((retval = nc_get_var_float(ncid, varid, rbuf)))
-        {
-            printf("failure reading variable ");
-            ERR(retval);
-        }
-
-        if ((retval = nc_close(ncid)))
-            ERR(retval);
-
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        double elapsed = end.tv_sec - start.tv_sec;
-        elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
-        arr3[i] = elapsed;
-
-        free(rbuf);
-        printf(ANSI_COLOR_GREEN "Finished" ANSI_COLOR_RESET "\n");
-    }
-
-    save_to_json(arr3, "test_netcdf4.json", "netcdf4-read", iteration);
 }
 
 void bench_variable_async(int size, int iteration)
@@ -928,6 +943,10 @@ void bench_variable_async_parallel(int argc, char **argv, int size, int iteratio
         hid_t file_id = 0;
         hid_t dset_id = 0;
         herr_t status = -1;
+        hid_t filespace = 0;
+        hid_t memspace = 0;
+        hsize_t count[1]; /* hyperslab selection parameters */
+        hsize_t offset[1];
 
         es_id = H5EScreate();
 
@@ -949,9 +968,20 @@ void bench_variable_async_parallel(int argc, char **argv, int size, int iteratio
         dset_id = H5Dopen_async(file_id, "/X", H5P_DEFAULT, es_id);
 
         /*
+         * Select hyperslab in the file.
+         */
+
+        int process_mem_size = size / mpi_size;
+
+        count[0] = process_mem_size;
+        offset[0] = count[0] * mpi_rank;
+        memspace = H5Screate_simple(1, count, NULL);
+
+        filespace = H5Dget_space(dset_id);
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        /*
          * Initialize data buffer
          */
-        int process_mem_size = size;
         float *rbuf = calloc(process_mem_size, sizeof(float));
 
         /*
@@ -965,7 +995,7 @@ void bench_variable_async_parallel(int argc, char **argv, int size, int iteratio
          *
          * H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);
          */
-        status = H5Dread_async(dset_id, H5T_NATIVE_FLOAT, H5S_BLOCK, H5S_ALL, plist_id, rbuf, es_id);
+        status = H5Dread_async(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, plist_id, rbuf, es_id);
 
         /*
          * Close/release resources.
@@ -998,11 +1028,20 @@ void bench_variable_async_parallel(int argc, char **argv, int size, int iteratio
 
 void bench_variable_subfiling(int argc, char **argv, int size, int iteration)
 {
+    double arr3[iteration];
+
     printf(ANSI_COLOR_YELLOW "Create hdf5 file with subfiling" ANSI_COLOR_RESET "\n");
     create_hdf5_subfiling(argc, argv, size);
     printf(ANSI_COLOR_YELLOW "Finish creating hdf5 file" ANSI_COLOR_RESET "\n");
 
-    double arr3[iteration];
+    /*
+     * Initialize MPI
+     */
+
+    int mpi_size, mpi_rank;
+    MPI_Comm comm = MPI_COMM_WORLD;
+    MPI_Comm_size(comm, &mpi_size);
+    MPI_Comm_rank(comm, &mpi_rank);
 
     for (int i = 0; i < iteration; i++)
     {
@@ -1054,22 +1093,54 @@ void bench_variable_subfiling(int argc, char **argv, int size, int iteration)
 
         H5Pset_alignment(fapl_id, 0, 1048576);
 
-        hid_t file_id, dset_id;
-        herr_t status;
-        int some_size = size;
-        float *rbuf = calloc(some_size, sizeof(float));
+        hid_t plist_id = 0;
+        hid_t file_id = 0;
+        hid_t dset_id = 0;
+        herr_t status = -1;
+        hid_t filespace = 0;
+        hid_t memspace = 0;
+        hsize_t count[1]; /* hyperslab selection parameters */
+        hsize_t offset[1];
 
+        /*
+         * Open existing file collectively and release property list identifier.
+         */
         file_id = H5Fopen("data/datasets/test_dataset_subfiling.h5", H5F_ACC_RDONLY, fapl_id);
-        dset_id = H5Dopen2(file_id, "/X", H5P_DEFAULT);
+        H5Pclose(fapl_id);
 
-        status = H5Dread(dset_id, H5T_NATIVE_FLOAT, H5S_BLOCK, H5S_ALL, H5P_DEFAULT, rbuf);
+        dset_id = H5Dopen(file_id, "/X", H5P_DEFAULT);
 
-        int rank;
-        MPI_Comm_rank(comm, &rank);
+        /*
+         * Select hyperslab in the file.
+         */
 
+        int process_mem_size = size / mpi_size;
+
+        count[0] = process_mem_size;
+        offset[0] = count[0] * mpi_rank;
+        memspace = H5Screate_simple(1, count, NULL);
+
+        filespace = H5Dget_space(dset_id);
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        /*
+         * Initialize data buffer
+         */
+        float *rbuf = calloc(process_mem_size, sizeof(float));
+
+        /*
+         * Create property list for collective dataset reads.
+         */
+        plist_id = H5Pcreate(H5P_DATASET_XFER);
+        H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+        status = H5Dread(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, plist_id, rbuf);
+
+        /*
+         * Close/release resources.
+         */
         status = H5Dclose(dset_id);
+        status = H5Pclose(plist_id);
         status = H5Fclose(file_id);
-        status = H5Pclose(fapl_id);
 
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed = end.tv_sec - start.tv_sec;
@@ -1169,20 +1240,23 @@ int main(int argc, char **argv)
         bench_variable_async(size, iterations);
         break;
     case 5:
-        printf(ANSI_COLOR_RED "PLEASE ENSURE THIS SCRIPT IS RUN WITH MPIEXEC / MPIRUN" ANSI_COLOR_RESET "\n");
-        printf(ANSI_COLOR_BLUE "Running hdf5 subfiling benchmark with a filesize of %d for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
-        bench_variable_subfiling(argc, argv, size, iterations);
-        MPI_Finalize();
-        break;
-    case 6:
+        printf(ANSI_COLOR_RED "CURRENTLY ONLY WORKS WITH EVEN MPI_RANKS" ANSI_COLOR_RESET "\n");
         printf(ANSI_COLOR_BLUE "Running hdf5 parallel benchmark with a filesize of %d for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
         bench_variable_hdf5_parallel(argc, argv, size, iterations);
         MPI_Finalize();
         break;
-    case 7:
+    case 6:
+        printf(ANSI_COLOR_RED "CURRENTLY ONLY WORKS WITH EVEN MPI_RANKS" ANSI_COLOR_RESET "\n");
         printf(ANSI_COLOR_RED "PLEASE ENSURE YOU LOADED HDF5-VOL-ASYNC AND SET THE ENVIRONMENTAL VARIABLES REQUIRED CORRECTLY" ANSI_COLOR_RESET "\n");
         printf(ANSI_COLOR_BLUE "Running hdf5-vol-async parallel benchmark with a filesize of %d for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
         bench_variable_async_parallel(argc, argv, size, iterations);
+        MPI_Finalize();
+        break;
+    case 7:
+        printf(ANSI_COLOR_RED "CURRENTLY ONLY WORKS WITH EVEN MPI_RANKS" ANSI_COLOR_RESET "\n");
+        printf(ANSI_COLOR_RED "PLEASE ENSURE THIS SCRIPT IS RUN WITH MPIEXEC / MPIRUN" ANSI_COLOR_RESET "\n");
+        printf(ANSI_COLOR_BLUE "Running hdf5 subfiling benchmark with a filesize of %d for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
+        bench_variable_subfiling(argc, argv, size, iterations);
         MPI_Finalize();
         break;
     case ARGP_KEY_ARG:
