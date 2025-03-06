@@ -3,6 +3,7 @@
 #include <netcdf.h>
 #include <time.h>
 #include <hdf5.h>
+#include <h5_async_lib.h>
 #include <unistd.h>
 #include <argp.h>
 
@@ -68,14 +69,14 @@ void save_list_to_json(double *arr, char *file_name, char *name, size_t size)
     fclose(fptr);
 }
 
-int check_vol_async_present()
+int check_vol_async_present(hid_t fapl_id)
 {
     hid_t default_vol_id = H5I_INVALID_HID;
     hid_t native_vol_id = H5I_INVALID_HID;
     int cmp = -1;
 
     /* Get the ID of the VOL connector set on the default FAPL (H5P_DEFAULT) */
-    if (H5Pget_vol_id(H5P_DEFAULT, &default_vol_id) < 0)
+    if (H5Pget_vol_id(fapl_id, &default_vol_id) < 0)
     {
         fprintf(stderr, "error\n");
         return -1;
@@ -324,12 +325,14 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, int size)
      * Set up file access property list with parallel I/O access
      */
     fapl_id = H5Pcreate(H5P_FILE_ACCESS);
+    status = H5Pset_vol_async(fapl_id);
+
+    check_vol_async_present(fapl_id);
+
     status = H5Pset_fapl_mpio(fapl_id, comm, info);
 
     H5Pset_all_coll_metadata_ops(fapl_id, true);
     H5Pset_coll_metadata_write(fapl_id, true);
-
-    check_vol_async_present();
 
     /*
      * Create a new file collectively.
@@ -393,28 +396,25 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, int size)
      */
     status = H5Dwrite_async(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, plist_id, wbuf, es_id);
 
+    /*
+     * Close/release resources.
+     */
+
+     status = H5Dclose_async(dset_id, es_id);
+     status = H5Fclose_async(file_id, es_id);
+
     size_t num_in_progress;
     hbool_t op_failed;
     printf("Wait for async answer \n");
     status = H5ESwait(es_id, H5ES_WAIT_FOREVER, &num_in_progress, &op_failed);
     printf("Finish waiting for async, num in progess: %ld, failed: %d, status: %d \n", num_in_progress, op_failed, status);
 
-    /*
-     * Close/release resources.
-     */
+    status = H5ESclose(es_id);
 
     status = H5Pclose(fapl_id);
     status = H5Sclose(memspace);
     status = H5Sclose(filespace);
     status = H5Pclose(plist_id);
-    status = H5Dclose_async(dset_id, es_id);
-    status = H5Fclose_async(file_id, es_id);
-
-    printf("Wait for async answer \n");
-    status = H5ESwait(es_id, H5ES_WAIT_FOREVER, &num_in_progress, &op_failed);
-    printf("Finish waiting for async, num in progess: %ld, failed: %d, status: %d \n", num_in_progress, op_failed, status);
-
-    status = H5ESclose(es_id);
 
     free(wbuf);
     MPI_Barrier(MPI_COMM_WORLD);
@@ -838,6 +838,9 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
          * Set up file access property list with parallel I/O access
          */
         fapl_id = H5Pcreate(H5P_FILE_ACCESS);
+
+        status = H5Pset_vol_async(fapl_id);
+
         status = H5Pset_fapl_mpio(fapl_id, MPI_COMM_WORLD, MPI_INFO_NULL);
 
         /*
@@ -883,8 +886,6 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
         /*
          * Close/release resources.
          */
-        status = H5Pclose(fapl_id);
-        status = H5Pclose(dxpl_id);
         status = H5Dclose_async(dset_id, es_id);
         status = H5Fclose_async(file_id, es_id);
 
@@ -896,6 +897,9 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
         printf("Finish waiting for async, num in progess: %ld, failed: %d, status: %d \n", num_in_progress, op_failed, status);
 
         H5ESclose(es_id);
+
+        status = H5Pclose(fapl_id);
+        status = H5Pclose(dxpl_id);
 
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed = end.tv_sec - start.tv_sec;
