@@ -393,14 +393,15 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, int size)
      */
     status = H5Dwrite_async(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, plist_id, wbuf, es_id);
 
-    /*
-     * Close/release resources.
-     */
     size_t num_in_progress;
     hbool_t op_failed;
     printf("Wait for async answer \n");
     status = H5ESwait(es_id, H5ES_WAIT_FOREVER, &num_in_progress, &op_failed);
     printf("Finish waiting for async, num in progess: %ld, failed: %d, status: %d \n", num_in_progress, op_failed, status);
+
+    /*
+     * Close/release resources.
+     */
 
     status = H5Pclose(fapl_id);
     status = H5Sclose(memspace);
@@ -409,7 +410,7 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, int size)
     status = H5Dclose_async(dset_id, es_id);
     status = H5Fclose_async(file_id, es_id);
 
-    printf("Wait for async closing \n");
+    printf("Wait for async answer \n");
     status = H5ESwait(es_id, H5ES_WAIT_FOREVER, &num_in_progress, &op_failed);
     printf("Finish waiting for async, num in progess: %ld, failed: %d, status: %d \n", num_in_progress, op_failed, status);
 
@@ -793,9 +794,9 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
 {
     double arr3[iteration];
 
-    //printf(ANSI_COLOR_YELLOW "Create hdf5 file with vol-async" ANSI_COLOR_RESET "\n");
-    //create_hdf5_async(argc, argv, false, size);
-    //printf(ANSI_COLOR_YELLOW "Finish creating hdf5 file" ANSI_COLOR_RESET "\n");
+    printf(ANSI_COLOR_YELLOW "Create hdf5 file with vol-async" ANSI_COLOR_RESET "\n");
+    create_hdf5_async(argc, argv, false, size);
+    printf(ANSI_COLOR_YELLOW "Finish creating hdf5 file" ANSI_COLOR_RESET "\n");
 
     /*
      * Initialize MPI
@@ -805,10 +806,10 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
     MPI_Comm comm = MPI_COMM_WORLD;
     MPI_Info info = MPI_INFO_NULL;
 
-    int mpi_thread_required = MPI_THREAD_MULTIPLE;
-    int mpi_thread_provided = 0;
+    // int mpi_thread_required = MPI_THREAD_MULTIPLE;
+    // int mpi_thread_provided = 0;
     /* Initialize MPI with threading support */
-    MPI_Init_thread(&argc, &argv, mpi_thread_required, &mpi_thread_provided);
+    // MPI_Init_thread(&argc, &argv, mpi_thread_required, &mpi_thread_provided);
 
     MPI_Comm_size(comm, &mpi_size);
     MPI_Comm_rank(comm, &mpi_rank);
@@ -842,7 +843,7 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
         /*
          * Open existing file collectively and release property list identifier.
          */
-        file_id = H5Fopen_async("data/datasets/test_dataset_hdf5-c.h5", H5F_ACC_RDONLY, fapl_id, es_id);
+        file_id = H5Fopen_async("data/datasets/test_dataset_hdf5-c_async.h5", H5F_ACC_RDONLY, fapl_id, es_id);
 
         /*
          * open the dataset with default properties and close filespace.
@@ -879,13 +880,6 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
          */
         status = H5Dread_async(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, dxpl_id, rbuf, es_id);
 
-        size_t num_in_progress;
-        hbool_t op_failed;
-
-        printf("Wait for async answer \n");
-        status = H5ESwait(es_id, H5ES_WAIT_FOREVER, &num_in_progress, &op_failed);
-        printf("Finish waiting for async, num in progess: %ld, failed: %d, status: %d \n", num_in_progress, op_failed, status);
-
         /*
          * Close/release resources.
          */
@@ -894,7 +888,10 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
         status = H5Dclose_async(dset_id, es_id);
         status = H5Fclose_async(file_id, es_id);
 
-        printf("Wait for async closing \n");
+        size_t num_in_progress = 0;
+        hbool_t op_failed = 0;
+
+        printf("Wait for async answer \n");
         status = H5ESwait(es_id, H5ES_WAIT_FOREVER, &num_in_progress, &op_failed);
         printf("Finish waiting for async, num in progess: %ld, failed: %d, status: %d \n", num_in_progress, op_failed, status);
 
