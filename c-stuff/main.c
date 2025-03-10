@@ -882,6 +882,7 @@ void bench_variable_async(int argc, char **argv, int size, int iteration)
          * H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);
          */
         status = H5Dread_async(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, dxpl_id, rbuf, es_id);
+        //status = H5Dread_async(dset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, dxpl_id, rbuf, es_id);
 
         /*
          * Close/release resources.
