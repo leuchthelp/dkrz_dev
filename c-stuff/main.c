@@ -1080,7 +1080,7 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 }
 
 static struct argp_option options[] = {
-    {"benchmark", 'b', "NUM", 0, "Benchmark to run from a selection of 1-5"},
+    {"benchmark", 'b', "NUM", 0, "Benchmark to run from a selection of 1-6"},
     {"base-filesize", 's', "NUM", 0, "Specifiy the base-filesize of the file you want to create"},
     {"factor", 'f', "NUM", 0, "Factor to multiply base-filesize with to increase / decrease size"},
     {"iterations", 'i', "NUM", 0, "Ammount of iterations the benchmark should run"},
