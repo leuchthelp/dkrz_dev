@@ -375,10 +375,7 @@ https://zarr.readthedocs.io/en/v3.0.1/user-guide/performance.html#parallel-compu
 Previously parallel access for Zarr in v2.18.4 was handle with `multiprocessing` or `threading` ensuring each `Writer` only accesses on singular subfile created by Zarr. 
 https://zarr.readthedocs.io/en/v2.18.4/tutorial.html#parallel-computing-and-synchronization
 
-![[readme-img/image.png]]
-![[readme-img/image-1.png]]
-![[readme-img/image 1.png]]
-![[readme-img/image-1 1.png]]
+
 ### NetCDF4 v4.9.2 py: netCDF4 v1.7.1.post2
 **supported** 
 - serial creation / open / read of File
