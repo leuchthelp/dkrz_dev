@@ -708,21 +708,21 @@ void bench_variable_netcdf4(int size, int iteration)
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        if ((retval = nc_open("data/datasets/test_dataset.nc", NC_NOWRITE, &ncid)))
+        if ((retval = nc_open("/home/dev/dkrz_dev/data/datasets/test_dataset.nc", NC_NOWRITE, &ncid)))
         {
-            printf("failure to open file ");
+            printf("failure to open file");
             ERR(retval);
         }
 
         if ((retval = nc_inq_varid(ncid, "X", &varid)))
         {
-            printf("failure finding variable id ");
+            printf("failure finding variable id");
             ERR(retval);
         }
 
         if ((retval = nc_get_var_float(ncid, varid, rbuf)))
         {
-            printf("failure reading variable ");
+            printf("failure reading variable");
             ERR(retval);
         }
 
