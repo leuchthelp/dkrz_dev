@@ -77,6 +77,8 @@ python -m venv .venv
 
 source .venv/bin/activate
 
+module load py-pip
+
 pip install -r requirements.txt
 ```
 
@@ -196,6 +198,8 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 ```
+
+**Important**: make sure the `c-stuff/data/datasets` path exists. This is where datasets created by the `C` part of the benchmark will be saved. If it doesn\`t exist yet, create it.
 
 Once done refresh you shell one final time to be safe and everything should be configured properly. 
 

@@ -708,7 +708,7 @@ void bench_variable_netcdf4(int size, int iteration)
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        if ((retval = nc_open("/home/dev/dkrz_dev/data/datasets/test_dataset.nc", NC_NOWRITE, &ncid)))
+        if ((retval = nc_open("../data/datasets/test_dataset.nc", NC_NOWRITE, &ncid)))
         {
             printf("failure to open file");
             ERR(retval);
