@@ -867,6 +867,8 @@ void bench_variable_async(int argc, char **argv, hsize_t size, int iteration)
 
         status = H5Pset_vol_async(fapl_id);
 
+        check_vol_async_present(fapl_id);
+
         status = H5Pset_fapl_mpio(fapl_id, comm, MPI_INFO_NULL);
 
         /*
