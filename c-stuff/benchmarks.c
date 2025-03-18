@@ -214,7 +214,7 @@ void create_hdf5_parallel(int argc, char **argv, bool with_chunking, hsize_t siz
     /*
      * Create a new file collectively.
      */
-    file_id = H5Fcreate("data/datasets/test_dataset_hdf5-c.h5", H5F_ACC_TRUNC, H5P_DEFAULT, plist_id);
+    file_id = H5Fcreate("data/datasets/test_dataset_hdf5-c_parallel.h5", H5F_ACC_TRUNC, H5P_DEFAULT, plist_id);
 
     /*
      * Close property list.
@@ -659,7 +659,7 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, int itera
         /*
          * Open existing file collectively and release property list identifier.
          */
-        file_id = H5Fopen("data/datasets/test_dataset_hdf5-c.h5", H5F_ACC_RDONLY, plist_id);
+        file_id = H5Fopen("data/datasets/test_dataset_hdf5-c_parallel.h5", H5F_ACC_RDONLY, plist_id);
         H5Pclose(plist_id);
 
         /*
