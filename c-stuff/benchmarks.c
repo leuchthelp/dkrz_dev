@@ -782,7 +782,7 @@ void bench_variable_nczarr(hsize_t size, int iteration)
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        if ((retval = nc_open("file:///home/dev/dkrz_dev/c-stuff/data/datasets/test_dataset.zarr#mode=zarr,file,v2", NC_NOWRITE, &ncid)))
+        if ((retval = nc_open("file:///home/dev/dkrz_dev/c-stuff/data/datasets/test_dataset.zarr#mode=zarr,file", NC_NOWRITE, &ncid)))
         {
             printf("failure to open file ");
             ERR(retval);
