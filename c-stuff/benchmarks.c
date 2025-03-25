@@ -480,7 +480,7 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
      * stripe size.
      */
     subf_config.shared_cfg.stripe_size = 1048576;
-    subf_config.shared_cfg.ioc_selection = SELECT_IOC_EVERY_NTH_RANK;
+    subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
 
     // subf_config.shared_cfg.stripe_count = mpi_size;
     /*
@@ -992,7 +992,7 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
          * stripe size.
          */
         subf_config.shared_cfg.stripe_size = 1048576;
-        subf_config.shared_cfg.ioc_selection = SELECT_IOC_EVERY_NTH_RANK;
+        subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
 
         // subf_config.shared_cfg.stripe_count = comm_size;
         /*
