@@ -195,7 +195,7 @@ def runner_netcdf4_c_parallel(df, shape, chunks, variable, iterations, total_fil
     print(p.returncode)
     
     tmp= pd.read_json("./c-stuff/data/results/test_netcdf4-c_parallel.json")
-    df_netcdf4_c_parallel = tmp["netcdf4-c-parallel"].tolist()
+    df_netcdf4_c_parallel = tmp["netcdf4-c-read-parallel"].tolist()
     
     tmp = pd.DataFrame(data={"time taken": df_netcdf4_c_parallel, "format": f"netcdf4-c-parallel-[{filesize}]-{chunks}", "run":index, "engine": "netcdf4-c-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
