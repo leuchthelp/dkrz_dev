@@ -638,8 +638,10 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, int itera
     {
         printf("i: %d for variable: X rank: %ld\n", i, mpi_rank);
         struct timespec start, end;
-
-        clock_gettime(CLOCK_MONOTONIC, &start);
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+        }
 
         hid_t plist_id = 0;
         hid_t file_id = 0;
@@ -705,17 +707,23 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, int itera
         status = H5Pclose(plist_id);
         status = H5Fclose(file_id);
 
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        double elapsed = end.tv_sec - start.tv_sec;
-        elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
-        arr3[i] = elapsed;
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            double elapsed = end.tv_sec - start.tv_sec;
+            elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+            arr3[i] = elapsed;
+        }
 
         free(rbuf);
         MPI_Barrier(MPI_COMM_WORLD);
         printf(ANSI_COLOR_GREEN "Finished" ANSI_COLOR_RESET "\n");
     }
 
-    save_to_json(arr3, "data/results/test_hdf5-c_parallel.json", "hdf5-c-read-parallel", iteration);
+    if (mpi_rank == 0)
+    {
+        save_to_json(arr3, "data/results/test_hdf5-c_parallel.json", "hdf5-c-read-parallel", iteration);
+    }
 }
 
 void bench_variable_netcdf4(hsize_t size, int iteration)
@@ -764,6 +772,92 @@ void bench_variable_netcdf4(hsize_t size, int iteration)
     }
 
     save_to_json(arr3, "data/results/test_netcdf4.json", "netcdf4-read", iteration);
+}
+
+void bench_variable_netcdf4_parallel(int argc, char **argv, hsize_t size, int iteration)
+{
+    double arr3[iteration];
+
+    /*
+     * Initialize MPI
+     */
+
+    int mpi_ssize;
+    int mpi_rrank;
+    MPI_Comm comm = MPI_COMM_WORLD;
+
+    int mpi_thread_required = MPI_THREAD_MULTIPLE;
+    int mpi_thread_provided = 0;
+    /* Initialize MPI with threading support */
+    MPI_Init_thread(&argc, &argv, mpi_thread_required, &mpi_thread_provided);
+
+    MPI_Comm_size(comm, &mpi_ssize);
+    MPI_Comm_rank(comm, &mpi_rrank);
+
+    hsize_t mpi_size = mpi_ssize;
+    hsize_t mpi_rank = mpi_rrank;
+
+    for (int i = 0; i < iteration; i++)
+    {
+        printf("i: %d for variable: X\n", i);
+        int ncid, varid, retval;
+        hsize_t count[1]; /* hyperslab selection parameters */
+        hsize_t offset[1];
+
+        struct timespec start, end;
+
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+        }
+
+        if ((retval = nc_open_par("../data/datasets/test_dataset.nc", NC_NOWRITE, comm, MPI_INFO_NULL, &ncid)))
+        {
+            printf("failure to open file");
+            ERR(retval);
+        }
+
+        if ((retval = nc_inq_varid(ncid, "X", &varid)))
+        {
+            printf("failure finding variable id");
+            ERR(retval);
+        }
+
+        hsize_t process_mem_size = size / mpi_size;
+
+        count[0] = process_mem_size;
+        offset[0] = count[0] * mpi_rank;
+
+        float *rbuf = calloc(process_mem_size, sizeof(float));
+
+        if ((retval = nc_get_vara_float(ncid, varid, offset, count, rbuf)))
+        {
+            printf("failure reading variable");
+            ERR(retval);
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        if ((retval = nc_close(ncid)))
+            ERR(retval);
+
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            double elapsed = end.tv_sec - start.tv_sec;
+            elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+            arr3[i] = elapsed;
+        }
+
+        free(rbuf);
+        MPI_Barrier(MPI_COMM_WORLD);
+        printf(ANSI_COLOR_GREEN "Finished" ANSI_COLOR_RESET "\n");
+    }
+
+    if (mpi_rank == 0)
+    {
+        save_to_json(arr3, "data/results/test_netcdf4-c_parallel.json", "netcdf4-c-read-parallel", iteration);
+    }
 }
 
 void bench_variable_nczarr(hsize_t size, int iteration)
@@ -845,7 +939,10 @@ void bench_variable_async(int argc, char **argv, hsize_t size, int iteration)
         printf("i: %d for variable: X rank: %ld\n", i, mpi_rank);
         struct timespec start, end;
 
-        clock_gettime(CLOCK_MONOTONIC, &start);
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+        }
 
         hid_t fapl_id = 0;
         hid_t dxpl_id = 0;
@@ -930,17 +1027,23 @@ void bench_variable_async(int argc, char **argv, hsize_t size, int iteration)
         status = H5Pclose(fapl_id);
         status = H5Pclose(dxpl_id);
 
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        double elapsed = end.tv_sec - start.tv_sec;
-        elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
-        arr3[i] = elapsed;
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            double elapsed = end.tv_sec - start.tv_sec;
+            elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+            arr3[i] = elapsed;
+        }
 
         free(rbuf);
         MPI_Barrier(MPI_COMM_WORLD);
         printf(ANSI_COLOR_GREEN "Finished" ANSI_COLOR_RESET "\n");
     }
 
-    save_to_json(arr3, "data/results/test_hdf5-c_async.json", "hdf5-c-async-read", iteration);
+    if (mpi_rank == 0)
+    {
+        save_to_json(arr3, "data/results/test_hdf5-c_async.json", "hdf5-c-async-read", iteration);
+    }
 }
 
 void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration)
@@ -973,7 +1076,10 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
         printf("i: %d for variable: X rank: %ld\n", i, mpi_rank);
         struct timespec start, end;
 
-        clock_gettime(CLOCK_MONOTONIC, &start);
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+        }
 
         H5FD_subfiling_config_t subf_config;
         H5FD_ioc_config_t ioc_config;
@@ -1063,17 +1169,23 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
         status = H5Pclose(plist_id);
         status = H5Fclose(file_id);
 
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        double elapsed = end.tv_sec - start.tv_sec;
-        elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
-        arr3[i] = elapsed;
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            double elapsed = end.tv_sec - start.tv_sec;
+            elapsed += (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+            arr3[i] = elapsed;
+        }
 
         free(rbuf);
 
         MPI_Barrier(MPI_COMM_WORLD);
         printf(ANSI_COLOR_GREEN "Finished" ANSI_COLOR_RESET "\n");
     }
-    save_to_json(arr3, "data/results/test_hdf5_subfiling.json", "hdf5-subfiling-read", iteration);
+    if (mpi_rank == 0)
+    {
+        save_to_json(arr3, "data/results/test_hdf5_subfiling.json", "hdf5-subfiling-read", iteration);
+    }
 }
 
 typedef struct args_t
@@ -1216,6 +1328,12 @@ int main(int argc, char **argv)
         printf(ANSI_COLOR_BLUE "Running hdf5 subfiling benchmark with a filesize of %lu for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
 
         bench_variable_subfiling(argc, argv, size, iterations);
+        MPI_Finalize();
+        break;
+    case 7:
+        printf(ANSI_COLOR_RED "CURRENTLY ONLY WORKS WITH EVEN MPI_RANKS" ANSI_COLOR_RESET "\n");
+        printf(ANSI_COLOR_BLUE "Running netcdf4 parallel benchmark with a filesize of %lu for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
+        bench_variable_netcdf4_parallel(argc, argv, size, iterations);
         MPI_Finalize();
         break;
     case ARGP_KEY_ARG:
