@@ -555,6 +555,9 @@ def main():
     
     if os.path.exists("log/"):
         shutil.rmtree("log/")
+        
+    if os.path.exists("c-stuff/log/"):
+        shutil.rmtree("c-stuff/log/")
     
     bench_variable(setup, pd.DataFrame(), variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
     #bench_python(setup, pd.DataFrame(), variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
