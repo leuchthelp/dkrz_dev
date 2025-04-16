@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <netcdf.h>
+#include <netcdf_par.h>
 #include <time.h>
 #include <hdf5.h>
 #include <h5_async_lib.h>
@@ -799,7 +800,7 @@ void bench_variable_netcdf4_parallel(int argc, char **argv, hsize_t size, int it
 
     for (int i = 0; i < iteration; i++)
     {
-        printf("i: %d for variable: X\n", i);
+        printf("i: %d for variable: X rank: %ld\n", i, mpi_rank);
         int ncid, varid, retval;
         hsize_t count[1]; /* hyperslab selection parameters */
         hsize_t offset[1];
@@ -813,13 +814,19 @@ void bench_variable_netcdf4_parallel(int argc, char **argv, hsize_t size, int it
 
         if ((retval = nc_open_par("../data/datasets/test_dataset.nc", NC_NOWRITE, comm, MPI_INFO_NULL, &ncid)))
         {
-            printf("failure to open file");
+            printf("failure to open file ");
             ERR(retval);
         }
 
         if ((retval = nc_inq_varid(ncid, "X", &varid)))
         {
-            printf("failure finding variable id");
+            printf("failure finding variable id ");
+            ERR(retval);
+        }
+
+        if ((retval = nc_var_par_access(ncid, varid, NC_COLLECTIVE)))
+        {
+            printf("failure setting collective I/O ");
             ERR(retval);
         }
 
@@ -835,8 +842,6 @@ void bench_variable_netcdf4_parallel(int argc, char **argv, hsize_t size, int it
             printf("failure reading variable");
             ERR(retval);
         }
-
-        MPI_Barrier(MPI_COMM_WORLD);
 
         if ((retval = nc_close(ncid)))
             ERR(retval);
