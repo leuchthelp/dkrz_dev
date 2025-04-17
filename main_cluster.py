@@ -45,23 +45,15 @@ def runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_ch
     ## run benchmark on zarr python file
     print(f"{color.OKBLUE}bench zarr with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
     
-    #path  ="data/results/test-zarr-python.json"
-    #delete_json(path)
-    
     call = f"python benchmarks.py -b 1 -v {variable} -i {iterations}"
     p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
     p.wait()
-    
-    #while not os.path.exists(path):
-    #    time.sleep(wait_time)
     
     times = pd.read_json("data/results/test-zarr-python.json")[0].tolist()
     tmp = pd.DataFrame(data={"time taken": times, "format": f"zarr-python-{shape}-{chunks}", "run":index, "engine": "zarr-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete zarr python file
-    if os.path.exists("data/datasets/test_dataset.zarr"):
-        shutil.rmtree("data/datasets/test_dataset.zarr")
         
     return df
 
@@ -70,15 +62,9 @@ def runner_netcdf4(df, shape, chunks, variable, iterations, total_filesize, size
     ## run benchmark on netcdf4 python file
     print(f"{color.OKBLUE}bench netcdf4 with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk:  {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
     
-    #path  ="data/results/test-netcdf4-python.json"
-    #delete_json(path)
-    
     call = f"python benchmarks.py -b 2 -v {variable} -i {iterations}"
     p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
     p.wait()
-    
-    #while not os.path.exists(path):
-    #    time.sleep(wait_time)
     
     times = pd.read_json("data/results/test-netcdf4-python.json")[0].tolist()
     tmp = pd.DataFrame(data={"time taken": times, "format": f"netcdf4-python-{shape}-{chunks}", "run":index, "engine": "netcdf4-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
@@ -110,24 +96,16 @@ def runner_hdf5(df, shape, chunks, variable, iterations, total_filesize, size_ch
 
     ## run benchmark on hdf5 python file
     print(f"{color.OKBLUE}bench hdf5 with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
-    
-    #path  ="data/results/test-hdf5-python.json"
-    #delete_json(path)
          
     call = f"python benchmarks.py -b 3 -v {variable} -i {iterations}"
     p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
     p.wait()
-    
-    #while not os.path.exists(path):
-    #    time.sleep(wait_time)
     
     times = pd.read_json("data/results/test-hdf5-python.json")[0].tolist()
     tmp = pd.DataFrame(data={"time taken": times, "format": f"hdf5-python-{shape}-{chunks}", "run":index, "engine": "hdf5-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete hdf5 python file
-    #if os.path.exists("data/datasets/test_dataset.h5"):
-    #    os.remove("data/datasets/test_dataset.h5")
         
     return df
 
@@ -146,8 +124,6 @@ def runner_hdf5_parallel(df, shape, chunks, variable, iterations, total_filesize
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete hdf5 python file
-    #if os.path.exists("data/datasets/test_dataset.h5"):
-    #    os.remove("data/datasets/test_dataset.h5")
         
     return df
 
@@ -417,9 +393,9 @@ def bench_python(setup, df, variable, iterations, mpi_ranks):
             json.dump(run, f)
         
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
-        call_create_zarr = "python benchmarks.py -c 1"
-        call_create_netcdf4 = "python benchmarks.py -c 2"
-        call_create_hdf5 = "python benchmarks.py -c 3"
+        call_create_zarr = f"python benchmarks.py -c 1"
+        call_create_netcdf4 = f"python benchmarks.py -c 2"
+        call_create_hdf5 = f"python benchmarks.py -c 3"
         p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call_create_zarr, "False", call_create_netcdf4, call_create_hdf5])
         p.wait()
         
@@ -470,14 +446,6 @@ def bench_c(setup, df, variable, iterations, mpi_ranks):
         call = "python benchmarks.py -c 2"
         p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
         p.wait()
-        
-        ## delete zarr python file
-        if os.path.exists("data/datasets/test_dataset.zarr"):
-            shutil.rmtree("data/datasets/test_dataset.zarr")
-        
-        ## delete hdf5 python file
-        if os.path.exists("data/datasets/test_dataset.h5"):
-            os.remove("data/datasets/test_dataset.h5")
         
         # setup metadata for c-runs
         filesize = shape[0]
