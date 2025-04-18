@@ -315,10 +315,16 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
             json.dump(run, f)
         
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
-        call_create_zarr = "python benchmarks.py -c 1"
-        call_create_netcdf4 = "python benchmarks.py -c 2"
-        call_create_hdf5 = "python benchmarks.py -c 3"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call_create_zarr, "False", call_create_netcdf4, call_create_hdf5])
+        call = "python benchmarks.py -c 1"
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p.wait()
+        
+        call = "python benchmarks.py -c 2"
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p.wait()
+        
+        call = "python benchmarks.py -c 3"
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
         p.wait()
         
         df = runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
@@ -393,10 +399,17 @@ def bench_python(setup, df, variable, iterations, mpi_ranks):
             json.dump(run, f)
         
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
-        call_create_zarr = f"python benchmarks.py -c 1"
-        call_create_netcdf4 = f"python benchmarks.py -c 2"
-        call_create_hdf5 = f"python benchmarks.py -c 3"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call_create_zarr, "False", call_create_netcdf4, call_create_hdf5])
+        
+        call = "python benchmarks.py -c 1"
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p.wait()
+        
+        call = "python benchmarks.py -c 2"
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p.wait()
+        
+        call = "python benchmarks.py -c 3"
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
         p.wait()
         
         df = runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
