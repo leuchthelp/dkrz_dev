@@ -298,6 +298,12 @@ def runner_hdf5_c_subfiling(df, shape, chunks, variable, iterations, total_files
 def bench_variable(setup, df, variable, iterations, mpi_ranks):
     index = 0
     
+    if os.path.exists("log/"):
+        shutil.rmtree("log/")
+        
+    if os.path.exists("c-stuff/log/"):
+        shutil.rmtree("c-stuff/log/")
+    
     for run in setup.values():
         
         shape = run[variable][0]
@@ -382,6 +388,9 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
 def bench_python(setup, df, variable, iterations, mpi_ranks):
     index = 0
     
+    if os.path.exists("log/"):
+        shutil.rmtree("log/")
+    
     for run in setup.values():
         
         shape = run[variable][0]
@@ -437,6 +446,9 @@ def bench_python(setup, df, variable, iterations, mpi_ranks):
         
 def bench_c(setup, df, variable, iterations, mpi_ranks):
     index = 0
+    
+    if os.path.exists("c-stuff/log/"):
+        shutil.rmtree("c-stuff/log/")
     
     for run in setup.values():
         
@@ -533,12 +545,6 @@ def main():
             #"run17": {"X": ([512, 512, 512], [512, 256, 256]), "Y": ([10, 10], [2, 2])},
             #"run18": {"X": ([512, 512, 512], [512, 512, 512]), "Y": ([10, 10], [2, 2])}, 
             }
-    
-    if os.path.exists("log/"):
-        shutil.rmtree("log/")
-        
-    if os.path.exists("c-stuff/log/"):
-        shutil.rmtree("c-stuff/log/")
     
     bench_variable(setup, pd.DataFrame(), variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
     #bench_python(setup, pd.DataFrame(), variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
