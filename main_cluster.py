@@ -543,16 +543,16 @@ def main():
             #"run10": {"X": ([10 * 134217728], [])},
             
             "run10": {"X": ([10 * 134217728], [])},
-            #"run11": {"X": ([20 * 134217728], [])},
-            "run11": {"X": ([25 * 134217728], [])},
-            #"run12": {"X": ([30 * 134217728], [])},
-            #"run13": {"X": ([40 * 134217728], [])},
+            "run11": {"X": ([20 * 134217728], [])},
+            #"run11": {"X": ([25 * 134217728], [])},
+            "run12": {"X": ([30 * 134217728], [])},
+            "run13": {"X": ([40 * 134217728], [])},
             "run14": {"X": ([50 * 134217728], [])},
-            #"run15": {"X": ([60 * 134217728], [])},
-            #"run16": {"X": ([70 * 134217728], [])},
-            "run16": {"X": ([75 * 134217728], [])},
-            #"run17": {"X": ([80 * 134217728], [])},
-            #"run18": {"X": ([90 * 134217728], [])},
+            "run15": {"X": ([60 * 134217728], [])},
+            "run16": {"X": ([70 * 134217728], [])},
+            #"run16": {"X": ([75 * 134217728], [])},
+            "run17": {"X": ([80 * 134217728], [])},
+            "run18": {"X": ([90 * 134217728], [])},
             "run19": {"X": ([100 * 134217728], [])},
             
             
@@ -570,9 +570,11 @@ def main():
             #"run18": {"X": ([512, 512, 512], [512, 512, 512]), "Y": ([10, 10], [2, 2])}, 
             }
     
-    bench_variable(setup, pd.DataFrame(), variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
-    #bench_python(setup, pd.DataFrame(), variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
-    #bench_c(setup, pd.DataFrame(), variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
+    df = pd.DataFrame()
+    
+    bench_variable(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
+    #bench_python(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
+    #bench_c(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
     
     
 
