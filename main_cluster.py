@@ -55,7 +55,7 @@ def runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_ch
         tmp = pd.DataFrame(data={"time taken": times, "format": f"zarr-python-{shape}-{chunks}", "run":index, "engine": "zarr-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True)
 
-        ## delete zarr python file
+    ## delete zarr python file
         
     return df
 
@@ -74,7 +74,7 @@ def runner_netcdf4(df, shape, chunks, variable, iterations, total_filesize, size
         tmp = pd.DataFrame(data={"time taken": times, "format": f"netcdf4-python-{shape}-{chunks}", "run":index, "engine": "netcdf4-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df= pd.concat([df, tmp], ignore_index=True)
 
-        ## delete netcdf4 python file - current still need for a later c run of netcdf4
+    ## delete netcdf4 python file - current still need for a later c run of netcdf4
 
     return df
 
@@ -93,7 +93,7 @@ def runner_netcdf4_parallel(df, shape, chunks, variable, iterations, total_files
         tmp = pd.DataFrame(data={"time taken": times, "format": f"netcdf4-python-parallel-{shape}-{chunks}", "run":index, "engine": "netcdf4-python-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df= pd.concat([df, tmp], ignore_index=True)
 
-        ## delete netcdf4 python file - current still need for a later c run of netcdf4
+    ## delete netcdf4 python file - current still need for a later c run of netcdf4
     
     return df
 
@@ -113,7 +113,7 @@ def runner_hdf5(df, shape, chunks, variable, iterations, total_filesize, size_ch
         tmp = pd.DataFrame(data={"time taken": times, "format": f"hdf5-python-{shape}-{chunks}", "run":index, "engine": "hdf5-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True)
 
-        ## delete hdf5 python file
+    ## delete hdf5 python file
         
     return df
 
@@ -132,7 +132,7 @@ def runner_hdf5_parallel(df, shape, chunks, variable, iterations, total_filesize
         tmp = pd.DataFrame(data={"time taken": times, "format": f"hdf5-python-parallel-{shape}-{chunks}", "run":index, "engine": "hdf5-python-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True)
 
-        ## delete hdf5 python file
+    ## delete hdf5 python file
         
     return df
 
@@ -161,7 +161,7 @@ def runner_netcdf4_c(df, shape, chunks, variable, iterations, total_filesize, si
         tmp = pd.DataFrame(data={"time taken": df_netcdf4_c, "format": f"netcdf4-c-[{filesize}]-{chunks}", "run":index, "engine": "netcdf4-c", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True)
 
-        ## delete netcdf4 file
+    ## delete netcdf4 file
         
     return df
  
@@ -189,9 +189,9 @@ def runner_netcdf4_c_parallel(df, shape, chunks, variable, iterations, total_fil
         tmp = pd.DataFrame(data={"time taken": df_netcdf4_c_parallel, "format": f"netcdf4-c-parallel-[{filesize}]-{chunks}", "run":index, "engine": "netcdf4-c-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True)
 
-        ## delete netcdf4 C file parallel
-        if os.path.exists("data/datasets/test_dataset.nc"):
-            os.remove("data/datasets/test_dataset.nc")
+    ## delete netcdf4 C file parallel
+    if os.path.exists("data/datasets/test_dataset.nc"):
+        os.remove("data/datasets/test_dataset.nc")
         
     return df 
  
@@ -218,9 +218,9 @@ def runner_hdf5_c(df, shape, chunks, variable, iterations, total_filesize, size_
         tmp = pd.DataFrame(data={"time taken": df_hdf5_c, "format": f"hdf5-c-[{filesize}]-{chunks}", "run":index, "engine": "hdf5-c", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True) 
 
-        ## delete hdf5 C file
-        if os.path.exists("c-stuff/data/datasets/test_dataset_hdf5-c.h5"):
-            os.remove("c-stuff/data/datasets/test_dataset_hdf5-c.h5")
+    ## delete hdf5 C file
+    if os.path.exists("c-stuff/data/datasets/test_dataset_hdf5-c.h5"):
+        os.remove("c-stuff/data/datasets/test_dataset_hdf5-c.h5")
         
     return df
  
@@ -249,9 +249,9 @@ def runner_hdf5_c_parallel(df, shape, chunks, variable, iterations, total_filesi
         tmp = pd.DataFrame(data={"time taken": df_hdf5_c_parallel, "format": f"hdf5-c-parallel-[{filesize}]-{chunks}", "run":index, "engine": "hdf5-c-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True)
 
-        ## delete hdf5 C file parallel
-        if os.path.exists("c-stuff/data/datasets/test_dataset_hdf5-c.h5"):
-            os.remove("c-stuff/data/datasets/test_dataset_hdf5-c.h5") 
+    ## delete hdf5 C file parallel
+    if os.path.exists("c-stuff/data/datasets/test_dataset_hdf5-c.h5"):
+        os.remove("c-stuff/data/datasets/test_dataset_hdf5-c.h5") 
         
     return df
  
@@ -279,9 +279,9 @@ def runner_hdf5_c_async(df, shape, chunks, variable, iterations, total_filesize,
         tmp = pd.DataFrame(data={"time taken": df_hdf5_async, "format": f"hdf5-async-[{filesize}]-{chunks}", "run":index, "engine": "hdf5-async", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True)
 
-        ## delete hdf5-vol-async file C parallel
-        if os.path.exists("c-stuff/data/datasets/test_dataset_hdf5-c_async.h5"):
-            os.remove("c-stuff/data/datasets/test_dataset_hdf5-c_async.h5")
+    ## delete hdf5-vol-async file C parallel
+    if os.path.exists("c-stuff/data/datasets/test_dataset_hdf5-c_async.h5"):
+        os.remove("c-stuff/data/datasets/test_dataset_hdf5-c_async.h5")
         
     return df
    
@@ -310,7 +310,7 @@ def runner_hdf5_c_subfiling(df, shape, chunks, variable, iterations, total_files
         tmp = pd.DataFrame(data={"time taken": df_hdf5_subfiling, "format": f"hdf5-subfiling-[{filesize}]-{chunks}", "run":index, "engine": "hdf5-subfiling", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
         df = pd.concat([df, tmp], ignore_index=True)
 
-        ## delete hdf5-subfiling C file - current not possible due to the unique structure of subfiling 
+    ## delete hdf5-subfiling C file - current not possible due to the unique structure of subfiling 
     
     return df
 
@@ -386,7 +386,6 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
         call_create_hdf5_subfiling = f"mpiexec -n  {mpi_ranks} ./a.out -c 6 -s {filesize}"
         p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call_create_hdf5, "False", call_create_hdf5_parallel, call_create_hdf5_async, call_create_hdf5_subfiling], cwd="./c-stuff")
         p.wait()
-        print(p.returncode)
         
         df = runner_netcdf4_c(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
         
@@ -505,7 +504,6 @@ def bench_c(setup, df, variable, iterations, mpi_ranks):
         call_create_hdf5_subfiling = f"mpiexec -n  {mpi_ranks} ./a.out -c 6 -s {filesize}"
         p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call_create_hdf5, "False", call_create_hdf5_parallel, call_create_hdf5_async, call_create_hdf5_subfiling], cwd="./c-stuff")
         p.wait()
-        print(p.returncode)
         
         df = runner_netcdf4_c(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
         
