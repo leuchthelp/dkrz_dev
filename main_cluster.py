@@ -153,8 +153,6 @@ def runner_netcdf4_c(df, shape, chunks, variable, iterations, total_filesize, si
         p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call],  cwd="./c-stuff")
         p.wait()
 
-        print(p.returncode)
-
         tmp = pd.read_json("./c-stuff/data/results/test_netcdf4.json")
         df_netcdf4_c = tmp["netcdf4-read"].tolist()
 
@@ -181,7 +179,6 @@ def runner_netcdf4_c_parallel(df, shape, chunks, variable, iterations, total_fil
         call = f"mpiexec -n {mpi_ranks} ./a.out -b 7 -i {1} -s {filesize}"
         p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call],  cwd="./c-stuff")
         p.wait()
-        print(p.returncode)
 
         tmp= pd.read_json("./c-stuff/data/results/test_netcdf4-c_parallel.json")
         df_netcdf4_c_parallel = tmp["netcdf4-c-read-parallel"].tolist()
@@ -549,9 +546,9 @@ def main():
             "run15": {"X": ([60 * 134217728], [])},
             "run16": {"X": ([70 * 134217728], [])},
             #"run16": {"X": ([75 * 134217728], [])},
-            "run17": {"X": ([80 * 134217728], [])},
-            "run18": {"X": ([90 * 134217728], [])},
-            "run19": {"X": ([100 * 134217728], [])},
+            #"run17": {"X": ([80 * 134217728], [])},
+            #"run18": {"X": ([90 * 134217728], [])},
+            #"run19": {"X": ([100 * 134217728], [])},
             
             
             #"run06": {"X": ([faktor * 512, 512, 512], [faktor * 512, 512, 128])},
