@@ -85,7 +85,7 @@ def runner_netcdf4_parallel(df, shape, chunks, variable, iterations, total_files
         ## run benchmark on netcdf4 python file
         print(f"{color.OKBLUE}bench netcdf4 parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk:  {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
-        call = f"mpiexec -n {mpi_ranks} python benchmarks.py -b 5 -v {1} -i {iterations}"
+        call = f"mpiexec -n {mpi_ranks} python benchmarks.py -b 5 -v {variable} -i {1}"
         p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
         p.wait()
 
@@ -170,8 +170,8 @@ def runner_netcdf4_c_parallel(df, shape, chunks, variable, iterations, total_fil
         # netcdf4-c-parallel
         filesize = shape[0]
 
+        print(f"{color.WARNING}create netcdf4-c Datasets for variable: {variable} with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
         ## create netcdf4 C file parallel 
-
 
         ## run benchmark on netcdf4 C file parallel
         print(f"{color.OKBLUE}bench netcdf4-c parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
