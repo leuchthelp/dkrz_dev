@@ -1,6 +1,5 @@
 from func.datastruct import bcolors as color
 import pandas as pd
-import mpi4py as MPI
 import os, shutil, subprocess, json
     
 
@@ -48,7 +47,7 @@ def runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_ch
         print(f"{color.OKBLUE}bench zarr with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"python benchmarks.py -b 1 -v {variable} -i {1}"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
 
         times = pd.read_json("data/results/test-zarr-python.json")[0].tolist()
@@ -67,7 +66,7 @@ def runner_netcdf4(df, shape, chunks, variable, iterations, total_filesize, size
         print(f"{color.OKBLUE}bench netcdf4 with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk:  {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"python benchmarks.py -b 2 -v {variable} -i {1}"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
 
         times = pd.read_json("data/results/test-netcdf4-python.json")[0].tolist()
@@ -86,7 +85,7 @@ def runner_netcdf4_parallel(df, shape, chunks, variable, iterations, total_files
         print(f"{color.OKBLUE}bench netcdf4 parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk:  {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"mpiexec -n {mpi_ranks} python benchmarks.py -b 5 -v {variable} -i {1}"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
 
         times = pd.read_json("data/results/test-netcdf4-python-parallel.json")[0].tolist()
@@ -106,7 +105,7 @@ def runner_hdf5(df, shape, chunks, variable, iterations, total_filesize, size_ch
         print(f"{color.OKBLUE}bench hdf5 with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"python benchmarks.py -b 3 -v {variable} -i {1}"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
 
         times = pd.read_json("data/results/test-hdf5-python.json")[0].tolist()
@@ -125,7 +124,7 @@ def runner_hdf5_parallel(df, shape, chunks, variable, iterations, total_filesize
         print(f"{color.OKBLUE}bench hdf5 parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"mpiexec -n {mpi_ranks} python benchmarks.py -b 6 -v {variable} -i {1}"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
 
         times = pd.read_json("data/results/test-hdf5-python-parallel.json")[0].tolist()
@@ -150,7 +149,7 @@ def runner_netcdf4_c(df, shape, chunks, variable, iterations, total_filesize, si
         print(f"{color.OKBLUE}bench netcdf-c with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"./a.out -b 2 -i {1} -s {filesize}"
-        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call],  cwd="./c-stuff")
+        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call, "False"],  cwd="./c-stuff")
         p.wait()
 
         tmp = pd.read_json("./c-stuff/data/results/test_netcdf4.json")
@@ -177,7 +176,7 @@ def runner_netcdf4_c_parallel(df, shape, chunks, variable, iterations, total_fil
         print(f"{color.OKBLUE}bench netcdf4-c parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"mpiexec -n {mpi_ranks} ./a.out -b 7 -i {1} -s {filesize}"
-        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call],  cwd="./c-stuff")
+        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call, "False"],  cwd="./c-stuff")
         p.wait()
 
         tmp= pd.read_json("./c-stuff/data/results/test_netcdf4-c_parallel.json")
@@ -206,7 +205,7 @@ def runner_hdf5_c(df, shape, chunks, variable, iterations, total_filesize, size_
         print(f"{color.OKBLUE}bench hdf5-c with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"./a.out -b 1 -i {1} -s {filesize}"
-        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call],  cwd="./c-stuff")
+        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call, "False"],  cwd="./c-stuff")
         p.wait()
 
         tmp= pd.read_json("./c-stuff/data/results/test_hdf5-c.json")
@@ -236,7 +235,7 @@ def runner_hdf5_c_parallel(df, shape, chunks, variable, iterations, total_filesi
         print(f"{color.OKBLUE}bench hdf5-c parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"mpiexec -n {mpi_ranks} ./a.out -b 4 -i {1} -s {filesize}"
-        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call],  cwd="./c-stuff")
+        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call, "False"],  cwd="./c-stuff")
         p.wait()
         print(p.returncode)
 
@@ -266,7 +265,7 @@ def runner_hdf5_c_async(df, shape, chunks, variable, iterations, total_filesize,
         print(f"{color.OKBLUE}bench hdf5-c async with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"mpiexec -n {mpi_ranks} ./a.out -b 5 -i {1} -s {filesize}"
-        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call],  cwd="./c-stuff")
+        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call, "False"],  cwd="./c-stuff")
         p.wait()
         print(p.returncode)
 
@@ -297,7 +296,7 @@ def runner_hdf5_c_subfiling(df, shape, chunks, variable, iterations, total_files
         print(f"{color.OKBLUE}bench hdf5-c parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
 
         call = f"mpiexec -n {mpi_ranks} ./a.out -b 6 -i {1} -s {filesize}"
-        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call],  cwd="./c-stuff")
+        p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call, "False"],  cwd="./c-stuff")
         p.wait()
         print(p.returncode)
 
@@ -339,15 +338,15 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
         
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
         call = "python benchmarks.py -c 1"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
         
         call = "python benchmarks.py -c 2"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
         
         call = "python benchmarks.py -c 3"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
         
         df = runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
@@ -426,15 +425,15 @@ def bench_python(setup, df, variable, iterations, mpi_ranks):
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
         
         call = "python benchmarks.py -c 1"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
         
         call = "python benchmarks.py -c 2"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
         
         call = "python benchmarks.py -c 3"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
         
         df = runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
@@ -485,7 +484,7 @@ def bench_c(setup, df, variable, iterations, mpi_ranks):
         
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
         call = "python benchmarks.py -c 2"
-        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call])
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
         p.wait()
         
         # setup metadata for c-runs
