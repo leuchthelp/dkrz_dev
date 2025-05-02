@@ -400,7 +400,7 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
         df.to_json("data/plotting/plotting_bench_variable.json")
         
         
-def bench_python(setup, df, variable, iterations, mpi_ranks):
+def bench_python(setup, df, variable, iterations, mpi_ranks, path):
     index = 0
     
     if os.path.exists("log/"):
@@ -456,10 +456,10 @@ def bench_python(setup, df, variable, iterations, mpi_ranks):
             os.remove("data/datasets/test_dataset.h5")
         
         index +=1
-        df.to_json("data/plotting/plotting_bench_python.json")
+        df.to_json(path)
         
         
-def bench_c(setup, df, variable, iterations, mpi_ranks):
+def bench_c(setup, df, variable, iterations, mpi_ranks, path):
     index = 0
     
     if os.path.exists("c-stuff/log/"):
@@ -515,7 +515,7 @@ def bench_c(setup, df, variable, iterations, mpi_ranks):
         
         
         index +=1
-        df.to_json("data/plotting/plotting_bench_c.json")
+        df.to_json(path)
 
         
 def main():
@@ -549,6 +549,12 @@ def main():
             #"run18": {"X": ([90 * 134217728], [])},
             #"run19": {"X": ([100 * 134217728], [])},
             
+            #"run14": {"X": ([10 * 134217728], [int(10 * 134217728 / 16)])},
+            #"run15": {"X": ([10 * 134217728], [int(10 * 134217728 / 32)])},
+            #"run16": {"X": ([10 * 134217728], [int(10 * 134217728 / 64)])},
+            #"run17": {"X": ([10 * 134217728], [int(10 * 134217728 / 128)])},
+            #"run18": {"X": ([10 * 134217728], [int(10 * 134217728 / 256)])},
+            
             
             #"run06": {"X": ([faktor * 512, 512, 512], [faktor * 512, 512, 128])},
             #"run07": {"X": ([faktor * 512, 512, 512], [faktor * 512, 512, 256])},
@@ -566,9 +572,9 @@ def main():
     
     df = pd.DataFrame()
     
-    bench_variable(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
-    #bench_python(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
-    #bench_c(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
+    #bench_variable(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
+    #bench_python(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_python_chunks.json")
+    bench_c(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_c.json")
     
     
 

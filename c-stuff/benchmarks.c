@@ -480,15 +480,15 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
      * Set Subfiling configuration to use a 1MiB
      * stripe size.
      */
-    subf_config.shared_cfg.stripe_size = 1048576;
-    subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
+    //subf_config.shared_cfg.stripe_size = 1048576;
+    //subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
 
-    // subf_config.shared_cfg.stripe_count = mpi_size;
+    subf_config.shared_cfg.stripe_count = 4;
     /*
      * Set IOC configuration to use 2 worker threads
      * per IOC instead of the default setting.
      */
-    ioc_config.thread_pool_size = 2;
+    //ioc_config.thread_pool_size = 2;
 
     /*
      * Set our new configuration on the IOC
@@ -553,10 +553,10 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
     }
 
     /*
-     * Create property list for collective dataset write.
+     * Create property list for independent dataset write.
      */
     plist_id = H5Pcreate(H5P_DATASET_XFER);
-    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);
 
     H5Dwrite(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, plist_id, wbuf);
 
@@ -1102,15 +1102,15 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
          * Set Subfiling configuration to use a 1MiB
          * stripe size.
          */
-        subf_config.shared_cfg.stripe_size = 1048576;
-        subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
+        //subf_config.shared_cfg.stripe_size = 1048576;
+        //subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
 
-        // subf_config.shared_cfg.stripe_count = comm_size;
+        subf_config.shared_cfg.stripe_count = 4;
         /*
          * Set IOC configuration to use 2 worker threads
          * per IOC instead of the default setting.
          */
-        ioc_config.thread_pool_size = 2;
+        //ioc_config.thread_pool_size = 2;
 
         /*
          * Set our new configuration on the IOC
@@ -1160,10 +1160,10 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
         float *rbuf = calloc(process_mem_size, sizeof(float));
 
         /*
-         * Create property list for collective dataset reads.
+         * Create property list for independent dataset reads.
          */
         plist_id = H5Pcreate(H5P_DATASET_XFER);
-        H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+        H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);
 
         status = H5Dread(dset_id, H5T_NATIVE_FLOAT, memspace, filespace, plist_id, rbuf);
 
