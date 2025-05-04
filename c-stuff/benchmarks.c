@@ -254,15 +254,23 @@ void create_hdf5_parallel(int argc, char **argv, bool with_chunking, hsize_t siz
      */
     count[0] = process_mem_size;
     offset[0] = count[0] * mpi_rank;
-    if (chunk != -1)
+    if (chunk != 0)
     {
         block[0] = chunk;
     }
-    
+
     memspace = H5Screate_simple(1, count, NULL);
 
     filespace = H5Dget_space(dset_id);
-    status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+
+    if (chunk != 0)
+    {
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+    }
+    else
+    {
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    }
     /*
      * Initialize data buffer
      */
@@ -391,13 +399,20 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, hsize_t size, 
      */
     count[0] = process_mem_size;
     offset[0] = count[0] * mpi_rank;
-    if (chunk != -1)
+    if (chunk != 0)
     {
         block[0] = chunk;
     }
     memspace = H5Screate_simple(1, count, NULL);
 
-    status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+    if (chunk != 0)
+    {
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+    }
+    else
+    {
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    }
     /*
      * Initialize data buffer
      */
@@ -569,14 +584,21 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
     count[0] = process_mem_size;
     offset[0] = count[0] * mpi_rank;
 
-    if (chunk != -1)
+    if (chunk != 0)
     {
         block[0] = chunk;
     }
     memspace = H5Screate_simple(1, count, NULL);
 
     filespace = H5Dget_space(dset_id);
-    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+    if (chunk != 0)
+    {
+        H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+    }
+    else
+    {
+        H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    }
 
     // fill buffer
     float *wbuf = calloc(process_mem_size, sizeof(float));
@@ -728,7 +750,14 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, hsize_t c
         memspace = H5Screate_simple(1, count, NULL);
 
         filespace = H5Dget_space(dset_id);
-        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+        if (chunk != 0)
+        {
+            status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+        }
+        else
+        {
+            status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        }
         /*
          * Initialize data buffer
          */
@@ -1047,7 +1076,14 @@ void bench_variable_async(int argc, char **argv, hsize_t size, hsize_t chunk, in
         memspace = H5Screate_simple(1, count, NULL);
 
         filespace = H5Dget_space(dset_id);
-        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+        if (chunk != 0)
+        {
+            status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+        }
+        else
+        {
+            status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        }
         /*
          * Initialize data buffer
          */
@@ -1214,7 +1250,14 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, hsize_t chunk
         memspace = H5Screate_simple(1, count, NULL);
 
         filespace = H5Dget_space(dset_id);
-        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+        if (chunk != 0)
+        {
+            status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
+        }
+        else
+        {
+            status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        }
         /*
          * Initialize data buffer
          */
