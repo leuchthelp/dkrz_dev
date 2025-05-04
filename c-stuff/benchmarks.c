@@ -133,7 +133,7 @@ void create_hdf5(bool with_chunking, hsize_t size, hsize_t chunk)
 
     plist_id = H5Pcreate(H5P_DATASET_CREATE);
 
-    if (chunk != -1)
+    if (chunk != 0)
     {
         // setup chunking
         cdims[0] = chunk;
@@ -231,7 +231,7 @@ void create_hdf5_parallel(int argc, char **argv, bool with_chunking, hsize_t siz
 
     plist_id = H5Pcreate(H5P_DATASET_CREATE);
 
-    if (chunk != -1)
+    if (chunk != 0)
     {
         // setup chunking
         cdims[0] = chunk;
@@ -374,7 +374,7 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, hsize_t size, 
 
     cplist_id = H5Pcreate(H5P_DATASET_CREATE);
 
-    if (chunk != -1)
+    if (chunk != 0)
     {
         // setup chunking
         cdims[0] = chunk;
@@ -551,7 +551,7 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
 
     plist_id = H5Pcreate(H5P_DATASET_CREATE);
 
-    if (chunk != -1)
+    if (chunk != 0)
     {
         // setup chunking
         cdims[0] = chunk;
@@ -721,7 +721,7 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, hsize_t c
 
         count[0] = process_mem_size;
         offset[0] = count[0] * mpi_rank;
-        if (chunk != -1)
+        if (chunk != 0)
         {
             block[0] = chunk;
         }
@@ -1040,7 +1040,7 @@ void bench_variable_async(int argc, char **argv, hsize_t size, hsize_t chunk, in
         count[0] = process_mem_size;
         offset[0] = count[0] * mpi_rank;
 
-        if (chunk != -1)
+        if (chunk != 0)
         {
             block[0] = chunk;
         }
@@ -1207,7 +1207,7 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, hsize_t chunk
 
         count[0] = process_mem_size;
         offset[0] = count[0] * mpi_rank;
-        if (chunk != -1)
+        if (chunk != 0)
         {
             block[0] = chunk;
         }
@@ -1314,7 +1314,7 @@ int main(int argc, char **argv)
     arguments.create = -1;
     arguments.benchmark = -1;
     arguments.size = 134217728;
-    arguments.chunk = -1;
+    arguments.chunk = 0;
     arguments.factor = 1;
     arguments.iterations = 10;
 
