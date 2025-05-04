@@ -311,7 +311,7 @@ def runner_hdf5_c_subfiling(df, shape, chunks, variable, iterations, total_files
     return df
 
 
-def bench_variable(setup, df, variable, iterations, mpi_ranks):
+def bench_variable(setup, df, variable, iterations, mpi_ranks, path):
     index = 0
     
     if os.path.exists("log/"):
@@ -370,16 +370,17 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
         
         # setup metadata for c-runs
         filesize = shape[0]
-        chunks = []
-        size_chunks = [None, None]
-        total_filesize = calc_chunksize(chunks=shape)
+        chunksize = 0
+        
+        if len(chunks) != 0:
+            chunksize = chunks[0]
         
         print(f"{color.WARNING}create c Datasets for variable: {variable} with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
         
-        call_create_hdf5 = f"./a.out -c 1 -s {filesize}"
-        call_create_hdf5_parallel = f"mpiexec -n  {mpi_ranks} ./a.out -c 4 -s {filesize}"
-        call_create_hdf5_async = f"mpiexec -n  {mpi_ranks} ./a.out -c 5 -s {filesize}"
-        call_create_hdf5_subfiling = f"mpiexec -n  {mpi_ranks} ./a.out -c 6 -s {filesize}"
+        call_create_hdf5 = f"./a.out -c 1 -s {filesize} -k {chunksize}"
+        call_create_hdf5_parallel = f"mpiexec -n  {mpi_ranks} ./a.out -c 4 -s {filesize} -k {chunksize}"
+        call_create_hdf5_async = f"mpiexec -n  {mpi_ranks} ./a.out -c 5 -s {filesize} -k {chunksize}"
+        call_create_hdf5_subfiling = f"mpiexec -n  {mpi_ranks} ./a.out -c 6 -s {filesize} -k {chunksize}"
         p = subprocess.Popen(["sbatch", "../slurm-scripts/run-anything.sh" , call_create_hdf5, "False", call_create_hdf5_parallel, call_create_hdf5_async, call_create_hdf5_subfiling], cwd="./c-stuff")
         p.wait()
         
@@ -389,15 +390,15 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
         
         df = runner_netcdf4_c_parallel(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
-        df = runner_hdf5_c_parallel(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
+        df = runner_hdf5_c_parallel(df, shape, chunksize, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
-        df = runner_hdf5_c_async(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
+        df = runner_hdf5_c_async(df, shape, chunksize, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
-        df = runner_hdf5_c_subfiling(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
+        df = runner_hdf5_c_subfiling(df, shape, chunksize, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
         
         index +=1
-        df.to_json("data/plotting/plotting_bench_variable.json")
+        df.to_json(path)
         
         
 def bench_python(setup, df, variable, iterations, mpi_ranks, path):
@@ -573,7 +574,7 @@ def main():
     
     df = pd.DataFrame()
     
-    #bench_variable(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks)
+    #bench_variable(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_variable.json")
     #bench_python(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_python_chunks.json")
     bench_c(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_c.json")
     
