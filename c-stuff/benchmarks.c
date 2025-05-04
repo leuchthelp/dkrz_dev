@@ -114,7 +114,7 @@ int check_vol_async_present(hid_t fapl_id)
     return 0;
 }
 
-void create_hdf5(bool with_chunking, hsize_t size)
+void create_hdf5(bool with_chunking, hsize_t size, hsize_t chunk)
 {
     printf(ANSI_COLOR_YELLOW "Create hdf5 file" ANSI_COLOR_RESET "\n");
     hid_t plist_id, file_id, filespace, dset_id; /* file identifier */
@@ -133,15 +133,15 @@ void create_hdf5(bool with_chunking, hsize_t size)
 
     plist_id = H5Pcreate(H5P_DATASET_CREATE);
 
-    if (with_chunking)
+    if (chunk != -1)
     {
         // setup chunking
-        cdims[0] = 512;
+        cdims[0] = chunk;
         status = H5Pset_chunk(plist_id, 1, cdims);
     }
 
     // create Dataset
-    dset_id = H5Dcreate2(file_id, "/X", H5T_IEEE_F64LE, filespace, H5P_DEFAULT, plist_id, H5P_DEFAULT);
+    dset_id = H5Dcreate(file_id, "/X", H5T_IEEE_F64LE, filespace, H5P_DEFAULT, plist_id, H5P_DEFAULT);
 
     // fill buffer
     float *wbuf = calloc(some_size, sizeof(float));
@@ -170,7 +170,7 @@ void create_hdf5(bool with_chunking, hsize_t size)
     printf(ANSI_COLOR_YELLOW "Finish creating hdf5 file" ANSI_COLOR_RESET "\n");
 }
 
-void create_hdf5_parallel(int argc, char **argv, bool with_chunking, hsize_t size)
+void create_hdf5_parallel(int argc, char **argv, bool with_chunking, hsize_t size, hsize_t chunk)
 {
     printf(ANSI_COLOR_YELLOW "Create hdf5 file with parallel" ANSI_COLOR_RESET "\n");
     hid_t plist_id = 0;
@@ -183,6 +183,7 @@ void create_hdf5_parallel(int argc, char **argv, bool with_chunking, hsize_t siz
     hsize_t cdims[1];
     hsize_t count[1]; /* hyperslab selection parameters */
     hsize_t offset[1];
+    hsize_t block[1];
 
     /*
      * Initialize MPI
@@ -228,28 +229,40 @@ void create_hdf5_parallel(int argc, char **argv, bool with_chunking, hsize_t siz
     dims[0] = size;
     filespace = H5Screate_simple(1, dims, NULL);
 
-    if (with_chunking)
+    plist_id = H5Pcreate(H5P_DATASET_CREATE);
+
+    if (chunk != -1)
     {
         // setup chunking
-        cdims[0] = 512;
+        cdims[0] = chunk;
         status = H5Pset_chunk(plist_id, 1, cdims);
     }
 
     /*
      * Create the dataset with default properties and close filespace.
      */
-    dset_id = H5Dcreate(file_id, "/X", H5T_IEEE_F64LE, filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    dset_id = H5Dcreate(file_id, "/X", H5T_IEEE_F64LE, filespace, H5P_DEFAULT, plist_id, H5P_DEFAULT);
     H5Sclose(filespace);
+
+    /*
+     * Close property list.
+     */
+    H5Pclose(plist_id);
 
     /*
      * Select hyperslab in the file.
      */
     count[0] = process_mem_size;
     offset[0] = count[0] * mpi_rank;
+    if (chunk != -1)
+    {
+        block[0] = chunk;
+    }
+    
     memspace = H5Screate_simple(1, count, NULL);
 
     filespace = H5Dget_space(dset_id);
-    status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
     /*
      * Initialize data buffer
      */
@@ -295,9 +308,10 @@ void create_hdf5_parallel(int argc, char **argv, bool with_chunking, hsize_t siz
     MPI_Barrier(MPI_COMM_WORLD);
 }
 
-void create_hdf5_async(int argc, char **argv, bool with_chunking, hsize_t size)
+void create_hdf5_async(int argc, char **argv, bool with_chunking, hsize_t size, hsize_t chunk)
 {
     printf(ANSI_COLOR_YELLOW "Create hdf5 file with vol-async" ANSI_COLOR_RESET "\n");
+    hid_t cplist_id = 0;
     hid_t plist_id = 0;
     hid_t fapl_id = 0;
     hid_t file_id = 0;
@@ -311,6 +325,7 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, hsize_t size)
     hsize_t mem_chunk_dims[1];
     hsize_t count[1]; /* hyperslab selection parameters */
     hsize_t offset[1];
+    hsize_t block[1];
 
     /*
      * Initialize MPI
@@ -357,26 +372,32 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, hsize_t size)
     dims[0] = size;
     filespace = H5Screate_simple(1, dims, NULL);
 
-    if (with_chunking)
+    cplist_id = H5Pcreate(H5P_DATASET_CREATE);
+
+    if (chunk != -1)
     {
         // setup chunking
-        cdims[0] = 512;
-        status = H5Pset_chunk(fapl_id, 1, cdims);
+        cdims[0] = chunk;
+        status = H5Pset_chunk(cplist_id, 1, cdims);
     }
 
     /*
      * Create the dataset with default properties and close filespace.
      */
-    dset_id = H5Dcreate_async(file_id, "/X", H5T_IEEE_F64LE, filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT, es_id);
+    dset_id = H5Dcreate_async(file_id, "/X", H5T_IEEE_F64LE, filespace, H5P_DEFAULT, cplist_id, H5P_DEFAULT, es_id);
 
     /*
      * Select hyperslab in the file.
      */
     count[0] = process_mem_size;
     offset[0] = count[0] * mpi_rank;
+    if (chunk != -1)
+    {
+        block[0] = chunk;
+    }
     memspace = H5Screate_simple(1, count, NULL);
 
-    status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
     /*
      * Initialize data buffer
      */
@@ -426,6 +447,7 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, hsize_t size)
     status = H5Pclose(fapl_id);
     status = H5Sclose(memspace);
     status = H5Sclose(filespace);
+    status = H5Pclose(cplist_id);
     status = H5Pclose(plist_id);
 
     free(wbuf);
@@ -433,7 +455,7 @@ void create_hdf5_async(int argc, char **argv, bool with_chunking, hsize_t size)
     MPI_Barrier(MPI_COMM_WORLD);
 }
 
-void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t size)
+void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t size, hsize_t chunk)
 {
     printf(ANSI_COLOR_YELLOW "Create hdf5 file with subfiling" ANSI_COLOR_RESET "\n");
     H5FD_subfiling_config_t subf_config;
@@ -480,15 +502,15 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
      * Set Subfiling configuration to use a 1MiB
      * stripe size.
      */
-    //subf_config.shared_cfg.stripe_size = 1048576;
-    //subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
+    // subf_config.shared_cfg.stripe_size = 1048576;
+    // subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
 
     subf_config.shared_cfg.stripe_count = 4;
     /*
      * Set IOC configuration to use 2 worker threads
      * per IOC instead of the default setting.
      */
-    //ioc_config.thread_pool_size = 2;
+    // ioc_config.thread_pool_size = 2;
 
     /*
      * Set our new configuration on the IOC
@@ -502,19 +524,24 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
     H5Pset_fapl_subfiling(fapl_id, &subf_config);
 
     H5Pset_alignment(fapl_id, 0, 1048576);
+
+    H5Pset_all_coll_metadata_ops(fapl_id, true);
+    H5Pset_coll_metadata_write(fapl_id, true);
     /*
      * Create a new Subfiling-based HDF5 file
      */
     file_id = H5Fcreate("data/datasets/test_dataset_subfiling.h5", H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id);
     H5Pclose(fapl_id);
 
-    hid_t plist_id;
+    hid_t plist_id = 0;
     hid_t dset_id = 0;
     hid_t filespace = 0;
     hid_t memspace = 0;
     hsize_t dims[1];
+    hsize_t cdims[1];
     hsize_t count[1]; /* hyperslab selection parameters */
     hsize_t offset[1];
+    hsize_t block[1];
 
     // setup dimensions
     hsize_t process_mem_size = size / mpi_size;
@@ -522,19 +549,34 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
     dims[0] = size;
     filespace = H5Screate_simple(1, dims, NULL);
 
+    plist_id = H5Pcreate(H5P_DATASET_CREATE);
+
+    if (chunk != -1)
+    {
+        // setup chunking
+        cdims[0] = chunk;
+        H5Pset_chunk(plist_id, 1, cdims);
+    }
+
     // create Dataset
-    dset_id = H5Dcreate2(file_id, "/X", H5T_IEEE_F64LE, filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    dset_id = H5Dcreate2(file_id, "/X", H5T_IEEE_F64LE, filespace, H5P_DEFAULT, plist_id, H5P_DEFAULT);
     H5Sclose(filespace);
+    H5Pclose(plist_id);
 
     /*
      * Select hyperslab in the file.
      */
     count[0] = process_mem_size;
     offset[0] = count[0] * mpi_rank;
+
+    if (chunk != -1)
+    {
+        block[0] = chunk;
+    }
     memspace = H5Screate_simple(1, count, NULL);
 
     filespace = H5Dget_space(dset_id);
-    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
 
     // fill buffer
     float *wbuf = calloc(process_mem_size, sizeof(float));
@@ -610,7 +652,7 @@ void bench_variable_hdf5(hsize_t size, int iteration)
     save_to_json(arr3, "data/results/test_hdf5-c.json", "hdf5-c-read", iteration);
 }
 
-void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, int iteration)
+void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, hsize_t chunk, int iteration)
 {
     double arr3[iteration];
 
@@ -652,6 +694,7 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, int itera
         hid_t memspace = 0;
         hsize_t count[1]; /* hyperslab selection parameters */
         hsize_t offset[1];
+        hsize_t block[1];
 
         /*
          * Set up file access property list with parallel I/O access
@@ -678,10 +721,14 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, int itera
 
         count[0] = process_mem_size;
         offset[0] = count[0] * mpi_rank;
+        if (chunk != -1)
+        {
+            block[0] = chunk;
+        }
         memspace = H5Screate_simple(1, count, NULL);
 
         filespace = H5Dget_space(dset_id);
-        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
         /*
          * Initialize data buffer
          */
@@ -914,7 +961,7 @@ void bench_variable_nczarr(hsize_t size, int iteration)
     save_to_json(arr3, "data/results/test_nczarr.json", "nczarr-read", iteration);
 }
 
-void bench_variable_async(int argc, char **argv, hsize_t size, int iteration)
+void bench_variable_async(int argc, char **argv, hsize_t size, hsize_t chunk, int iteration)
 {
     double arr3[iteration];
 
@@ -959,6 +1006,7 @@ void bench_variable_async(int argc, char **argv, hsize_t size, int iteration)
         hid_t memspace = 0;
         hsize_t count[1]; /* hyperslab selection parameters */
         hsize_t offset[1];
+        hsize_t block[1];
 
         es_id = H5EScreate();
 
@@ -991,10 +1039,15 @@ void bench_variable_async(int argc, char **argv, hsize_t size, int iteration)
 
         count[0] = process_mem_size;
         offset[0] = count[0] * mpi_rank;
+
+        if (chunk != -1)
+        {
+            block[0] = chunk;
+        }
         memspace = H5Screate_simple(1, count, NULL);
 
         filespace = H5Dget_space(dset_id);
-        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
         /*
          * Initialize data buffer
          */
@@ -1051,7 +1104,7 @@ void bench_variable_async(int argc, char **argv, hsize_t size, int iteration)
     }
 }
 
-void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration)
+void bench_variable_subfiling(int argc, char **argv, hsize_t size, hsize_t chunk, int iteration)
 {
     double arr3[iteration];
 
@@ -1102,15 +1155,15 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
          * Set Subfiling configuration to use a 1MiB
          * stripe size.
          */
-        //subf_config.shared_cfg.stripe_size = 1048576;
-        //subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
+        // subf_config.shared_cfg.stripe_size = 1048576;
+        // subf_config.shared_cfg.ioc_selection = SELECT_IOC_ONE_PER_NODE;
 
         subf_config.shared_cfg.stripe_count = 4;
         /*
          * Set IOC configuration to use 2 worker threads
          * per IOC instead of the default setting.
          */
-        //ioc_config.thread_pool_size = 2;
+        // ioc_config.thread_pool_size = 2;
 
         /*
          * Set our new configuration on the IOC
@@ -1125,6 +1178,9 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
 
         H5Pset_alignment(fapl_id, 0, 1048576);
 
+        H5Pset_all_coll_metadata_ops(fapl_id, true);
+        H5Pset_coll_metadata_write(fapl_id, true);
+
         hid_t plist_id = 0;
         hid_t file_id = 0;
         hid_t dset_id = 0;
@@ -1133,6 +1189,7 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
         hid_t memspace = 0;
         hsize_t count[1]; /* hyperslab selection parameters */
         hsize_t offset[1];
+        hsize_t block[1];
 
         /*
          * Open existing file collectively and release property list identifier.
@@ -1150,10 +1207,14 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, int iteration
 
         count[0] = process_mem_size;
         offset[0] = count[0] * mpi_rank;
+        if (chunk != -1)
+        {
+            block[0] = chunk;
+        }
         memspace = H5Screate_simple(1, count, NULL);
 
         filespace = H5Dget_space(dset_id);
-        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, block);
         /*
          * Initialize data buffer
          */
@@ -1198,6 +1259,7 @@ typedef struct args_t
     int create;
     int benchmark;
     hsize_t size;
+    hsize_t chunk;
     hsize_t factor;
     int iterations;
 } args_t;
@@ -1220,6 +1282,9 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
     case 's':
         arguments->size = strtoull(arg, NULL, 10);
         break;
+    case 'k':
+        arguments->chunk = strtoull(arg, NULL, 10);
+        break;
     case 'f':
         arguments->factor = strtoull(arg, NULL, 10);
         break;
@@ -1235,6 +1300,7 @@ static struct argp_option options[] = {
     {"create file", 'c', "NUM", 0, "File to create from selection of 1-6, matches benchmarks"},
     {"benchmark", 'b', "NUM", 0, "Benchmark to run from a selection of 1-6"},
     {"base-filesize", 's', "NUM", 0, "Specifiy the base-filesize of the file you want to create"},
+    {"chunksize", 'k', "NUM", 0, "Specifiy the base-filesize of the file you want to create"},
     {"factor", 'f', "NUM", 0, "Factor to multiply base-filesize with to increase / decrease size"},
     {"iterations", 'i', "NUM", 0, "Ammount of iterations the benchmark should run"},
     {0}};
@@ -1248,16 +1314,18 @@ int main(int argc, char **argv)
     arguments.create = -1;
     arguments.benchmark = -1;
     arguments.size = 134217728;
+    arguments.chunk = -1;
     arguments.factor = 1;
     arguments.iterations = 10;
 
-    printf(ANSI_COLOR_CYAN "Default benchmark %d, filesize %lu, factor %lu, iterations %d" ANSI_COLOR_RESET "\n", arguments.benchmark, arguments.size, arguments.factor, arguments.iterations);
+    printf(ANSI_COLOR_CYAN "Default benchmark %d, filesize %lu, chunksize %lu, factor %lu, iterations %d" ANSI_COLOR_RESET "\n", arguments.benchmark, arguments.size, arguments.chunk, arguments.factor, arguments.iterations);
 
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
-    printf(ANSI_COLOR_MAGENTA "Parsing %d, filesize %lu, factor %lu, iterations %d" ANSI_COLOR_RESET "\n", arguments.benchmark, arguments.size, arguments.factor, arguments.iterations);
+    printf(ANSI_COLOR_MAGENTA "Parsing %d, filesize %lu, chunksize %lu, factor %lu, iterations %d" ANSI_COLOR_RESET "\n", arguments.benchmark, arguments.size, arguments.chunk, arguments.factor, arguments.iterations);
 
     hsize_t size = arguments.size * arguments.factor;
+    hsize_t chunk = arguments.chunk;
     int iterations = arguments.iterations;
 
     // arguments parsing for creation of file
@@ -1266,28 +1334,28 @@ int main(int argc, char **argv)
     case -1:
         break;
     case 1:
-        printf(ANSI_COLOR_BLUE "Creating hdf5 file with a filesize of %lu" ANSI_COLOR_RESET "\n", size);
-        create_hdf5(false, size);
+        printf(ANSI_COLOR_BLUE "Creating hdf5 file with a filesize of %lu and chunksize of %lu" ANSI_COLOR_RESET "\n", size, chunk);
+        create_hdf5(false, size, chunk);
         break;
     case 2:
-        printf(ANSI_COLOR_BLUE "Creating netcdf4 file with a filesize of %lu" ANSI_COLOR_RESET "\n", size);
+        printf(ANSI_COLOR_BLUE "Creating netcdf4 file with a filesize of %lu and chunksize of %lu" ANSI_COLOR_RESET "\n", size, chunk);
         break;
     case 3:
-        printf(ANSI_COLOR_BLUE "Creating nczarr file with a filesize of %lu" ANSI_COLOR_RESET "\n", size);
+        printf(ANSI_COLOR_BLUE "Creating nczarr file with a filesize of %lu and chunksize of %lu" ANSI_COLOR_RESET "\n", size, chunk);
         break;
     case 4:
-        printf(ANSI_COLOR_BLUE "Creating hdf5-parallel file with a filesize of %lu" ANSI_COLOR_RESET "\n", size);
-        create_hdf5_parallel(argc, argv, false, size);
+        printf(ANSI_COLOR_BLUE "Creating hdf5-parallel file with a filesize of %lu and chunksize of %lu" ANSI_COLOR_RESET "\n", size, chunk);
+        create_hdf5_parallel(argc, argv, false, size, chunk);
         MPI_Finalize();
         break;
     case 5:
-        printf(ANSI_COLOR_BLUE "Creating hdf5-vol-async file with a filesize of %lu" ANSI_COLOR_RESET "\n", size);
-        create_hdf5_async(argc, argv, false, size);
+        printf(ANSI_COLOR_BLUE "Creating hdf5-vol-async file with a filesize of %lu and chunksize of %lu" ANSI_COLOR_RESET "\n", size, chunk);
+        create_hdf5_async(argc, argv, false, size, chunk);
         MPI_Finalize();
         break;
     case 6:
-        printf(ANSI_COLOR_BLUE "Creating hdf5 subfiling file with a filesize of %lu" ANSI_COLOR_RESET "\n", size);
-        create_hdf5_subfiling(argc, argv, false, size);
+        printf(ANSI_COLOR_BLUE "Creating hdf5 subfiling file with a filesize of %lu and chunksize of %lu" ANSI_COLOR_RESET "\n", size, chunk);
+        create_hdf5_subfiling(argc, argv, false, size, chunk);
         MPI_Finalize();
         break;
     case ARGP_KEY_ARG:
@@ -1317,14 +1385,14 @@ int main(int argc, char **argv)
     case 4:
         printf(ANSI_COLOR_RED "CURRENTLY ONLY WORKS WITH EVEN MPI_RANKS" ANSI_COLOR_RESET "\n");
         printf(ANSI_COLOR_BLUE "Running hdf5 parallel benchmark with a filesize of %lu for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
-        bench_variable_hdf5_parallel(argc, argv, size, iterations);
+        bench_variable_hdf5_parallel(argc, argv, size, chunk, iterations);
         MPI_Finalize();
         break;
     case 5:
         printf(ANSI_COLOR_RED "CURRENTLY ONLY WORKS WITH EVEN MPI_RANKS" ANSI_COLOR_RESET "\n");
         printf(ANSI_COLOR_RED "PLEASE ENSURE YOU LOADED HDF5-VOL-ASYNC AND SET THE ENVIRONMENTAL VARIABLES REQUIRED CORRECTLY" ANSI_COLOR_RESET "\n");
         printf(ANSI_COLOR_BLUE "Running hdf5-vol-async parallel benchmark with a filesize of %lu for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
-        bench_variable_async(argc, argv, size, iterations);
+        bench_variable_async(argc, argv, size, chunk, iterations);
         MPI_Finalize();
         break;
     case 6:
@@ -1332,7 +1400,7 @@ int main(int argc, char **argv)
         printf(ANSI_COLOR_RED "PLEASE ENSURE THIS SCRIPT IS RUN WITH MPIEXEC / MPIRUN" ANSI_COLOR_RESET "\n");
         printf(ANSI_COLOR_BLUE "Running hdf5 subfiling benchmark with a filesize of %lu for %d iterations" ANSI_COLOR_RESET "\n", size, iterations);
 
-        bench_variable_subfiling(argc, argv, size, iterations);
+        bench_variable_subfiling(argc, argv, size, chunk, iterations);
         MPI_Finalize();
         break;
     case 7:
