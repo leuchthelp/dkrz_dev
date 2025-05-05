@@ -16,7 +16,7 @@ def show_header(ds_tmp):
     ds_tmp.read(pattern="header", variable="X")
 
 
-def calc_chunksize(chunks):
+def calc_chunksize(chunks, stop_depth="GB"):
     
     res = 1
     size = "Byte"
@@ -25,16 +25,16 @@ def calc_chunksize(chunks):
         res *= chunksize
     
     res *= 8
-    if res > 1 * 1024 * 1024:
+    if stop_depth is "KB":
         res /= 1024
         size="KB"
        
-    if res > 1024:
-        res /= 1024
+    if stop_depth is "MB":
+        res = res / 1024 / 1024
         size = "MB"
-        
-    if res > 1:
-        res /= 1024
+       
+    if stop_depth is "GB":
+        res = res / 1024 / 1024 / 1024
         size = "GB"
 
     return (res, size)
@@ -329,7 +329,7 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks, path):
         
         size_chunks = [None, None]
         if len(chunks) != 0:
-            size_chunks = calc_chunksize(chunks=chunks)
+            size_chunks = calc_chunksize(chunks=chunks, stop_depth="MB")
         
         print(f"{color.WARNING}create python Datasets for variable: {variable} with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
         
@@ -416,7 +416,7 @@ def bench_python(setup, df, variable, iterations, mpi_ranks, path):
         
         size_chunks = [None, None]
         if len(chunks) != 0:
-            size_chunks = calc_chunksize(chunks=chunks)
+            size_chunks = calc_chunksize(chunks=chunks, stop_depth="MB")
         
         print(f"{color.WARNING}create python Datasets for variable: {variable} with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
         
@@ -475,7 +475,7 @@ def bench_c(setup, df, variable, iterations, mpi_ranks, path):
         
         size_chunks = [None, None]
         if len(chunks) != 0:
-            size_chunks = calc_chunksize(chunks=chunks)
+            size_chunks = calc_chunksize(chunks=chunks, stop_depth="MB")
         
         print(f"{color.WARNING}create python Datasets for variable: {variable} with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
         
