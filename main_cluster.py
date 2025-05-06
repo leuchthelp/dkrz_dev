@@ -25,15 +25,15 @@ def calc_chunksize(chunks, stop_depth="GB"):
         res *= chunksize
     
     res *= 8
-    if stop_depth is "KB":
+    if stop_depth == "KB":
         res /= 1024
         size="KB"
        
-    if stop_depth is "MB":
+    if stop_depth == "MB":
         res = res / 1024 / 1024
         size = "MB"
        
-    if stop_depth is "GB":
+    if stop_depth == "GB":
         res = res / 1024 / 1024 / 1024
         size = "GB"
 
