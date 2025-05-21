@@ -610,9 +610,6 @@ void bench_variable_hdf5(hsize_t size, int iteration)
     for (int i = 0; i < iteration; i++)
     {
         printf("i: %d for variable: X\n", i);
-        struct timespec start, end;
-
-        clock_gettime(CLOCK_MONOTONIC, &start);
 
         hid_t file_id, dset_id;
         herr_t status;
@@ -621,6 +618,10 @@ void bench_variable_hdf5(hsize_t size, int iteration)
 
         file_id = H5Fopen("data/datasets/test_dataset_hdf5-c.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
         dset_id = H5Dopen2(file_id, "/X", H5P_DEFAULT);
+
+        struct timespec start, end;
+
+        clock_gettime(CLOCK_MONOTONIC, &start);
 
         status = H5Dread(dset_id, H5T_NATIVE_FLOAT, H5S_BLOCK, H5S_ALL, H5P_DEFAULT, rbuf);
 
@@ -667,11 +668,6 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, hsize_t c
     for (int i = 0; i < iteration; i++)
     {
         printf("i: %d for variable: X rank: %ld\n", i, mpi_rank);
-        struct timespec start, end;
-        if (mpi_rank == 0)
-        {
-            clock_gettime(CLOCK_MONOTONIC, &start);
-        }
 
         hid_t plist_id = 0;
         hid_t file_id = 0;
@@ -694,6 +690,12 @@ void bench_variable_hdf5_parallel(int argc, char **argv, hsize_t size, hsize_t c
          */
         file_id = H5Fopen("data/datasets/test_dataset_hdf5-c_parallel.h5", H5F_ACC_RDONLY, plist_id);
         H5Pclose(plist_id);
+
+        struct timespec start, end;
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+        }
 
         /*
          * open the dataset with default properties and close filespace.
@@ -768,15 +770,15 @@ void bench_variable_netcdf4(hsize_t size, int iteration)
         hsize_t some_size = size;
         float *rbuf = calloc(some_size, sizeof(float));
 
-        struct timespec start, end;
-
-        clock_gettime(CLOCK_MONOTONIC, &start);
-
         if ((retval = nc_open("../data/datasets/test_dataset.nc", NC_NOWRITE, &ncid)))
         {
             printf("failure to open file");
             ERR(retval);
         }
+
+        struct timespec start, end;
+
+        clock_gettime(CLOCK_MONOTONIC, &start);
 
         if ((retval = nc_inq_varid(ncid, "X", &varid)))
         {
@@ -835,17 +837,17 @@ void bench_variable_netcdf4_parallel(int argc, char **argv, hsize_t size, int it
         hsize_t count[1]; /* hyperslab selection parameters */
         hsize_t offset[1];
 
+        if ((retval = nc_open_par("../data/datasets/test_dataset.nc", NC_NOWRITE, comm, MPI_INFO_NULL, &ncid)))
+        {
+            printf("failure to open file ");
+            ERR(retval);
+        }
+
         struct timespec start, end;
 
         if (mpi_rank == 0)
         {
             clock_gettime(CLOCK_MONOTONIC, &start);
-        }
-
-        if ((retval = nc_open_par("../data/datasets/test_dataset.nc", NC_NOWRITE, comm, MPI_INFO_NULL, &ncid)))
-        {
-            printf("failure to open file ");
-            ERR(retval);
         }
 
         if ((retval = nc_inq_varid(ncid, "X", &varid)))
@@ -907,15 +909,16 @@ void bench_variable_nczarr(hsize_t size, int iteration)
         hsize_t some_size = size;
         float *rbuf = calloc(some_size, sizeof(float));
 
-        struct timespec start, end;
-
-        clock_gettime(CLOCK_MONOTONIC, &start);
-
         if ((retval = nc_open("file:///home/dev/dkrz_dev/c-stuff/data/datasets/test_dataset.zarr#mode=zarr,file", NC_NOWRITE, &ncid)))
         {
             printf("failure to open file ");
             ERR(retval);
         }
+
+
+        struct timespec start, end;
+
+        clock_gettime(CLOCK_MONOTONIC, &start);
 
         if ((retval = nc_inq_varid(ncid, "X", &varid)))
         {
@@ -972,12 +975,6 @@ void bench_variable_async(int argc, char **argv, hsize_t size, hsize_t chunk, in
     for (int i = 0; i < iteration; i++)
     {
         printf("i: %d for variable: X rank: %ld\n", i, mpi_rank);
-        struct timespec start, end;
-
-        if (mpi_rank == 0)
-        {
-            clock_gettime(CLOCK_MONOTONIC, &start);
-        }
 
         hid_t fapl_id = 0;
         hid_t dxpl_id = 0;
@@ -1008,6 +1005,13 @@ void bench_variable_async(int argc, char **argv, hsize_t size, hsize_t chunk, in
          * Open existing file collectively and release property list identifier.
          */
         file_id = H5Fopen_async("data/datasets/test_dataset_hdf5-c_async.h5", H5F_ACC_RDONLY, fapl_id, es_id);
+
+        struct timespec start, end;
+
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+        }
 
         /*
          * open the dataset with default properties and close filespace.
@@ -1110,12 +1114,6 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, hsize_t chunk
     for (int i = 0; i < iteration; i++)
     {
         printf("i: %d for variable: X rank: %ld\n", i, mpi_rank);
-        struct timespec start, end;
-
-        if (mpi_rank == 0)
-        {
-            clock_gettime(CLOCK_MONOTONIC, &start);
-        }
 
         H5FD_subfiling_config_t subf_config;
         H5FD_ioc_config_t ioc_config;
@@ -1154,7 +1152,7 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, hsize_t chunk
          */
         H5Pset_fapl_subfiling(fapl_id, &subf_config);
 
-        H5Pset_alignment(fapl_id, 0, 1048576);
+        H5Pset_alignment(fapl_id, 0, 33554432);
 
         H5Pset_all_coll_metadata_ops(fapl_id, true);
         H5Pset_coll_metadata_write(fapl_id, true);
@@ -1174,6 +1172,13 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, hsize_t chunk
          */
         file_id = H5Fopen("data/datasets/test_dataset_subfiling.h5", H5F_ACC_RDONLY, fapl_id);
         H5Pclose(fapl_id);
+
+        struct timespec start, end;
+
+        if (mpi_rank == 0)
+        {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+        }
 
         dset_id = H5Dopen(file_id, "/X", H5P_DEFAULT);
 
