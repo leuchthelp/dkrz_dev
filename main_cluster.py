@@ -59,6 +59,25 @@ def runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_ch
     return df
 
 
+def runner_zarr_parallel(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks):
+    
+    for i in range(iterations):
+        ## run benchmark on zarr python file
+        print(f"{color.OKBLUE}bench zarr parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk:  {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
+
+        call = f"mpiexec -n {mpi_ranks} python benchmarks.py -b 4 -v {variable} -i {1}"
+        p = subprocess.Popen(["sbatch", "slurm-scripts/run-anything.sh" , call, "False"])
+        p.wait()
+
+        times = pd.read_json("data/results/test-zarr-python-parallel.json")[0].tolist()
+        tmp = pd.DataFrame(data={"time taken": times, "format": f"zarr-python-parallel-{shape}-{chunks}", "run":index, "engine": "zarr-python-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
+        df= pd.concat([df, tmp], ignore_index=True)
+
+    ## delete zarr python file
+    
+    return df
+
+
 def runner_netcdf4(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index):
     
     for i in range(iterations):
@@ -355,6 +374,8 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks, path):
         
         df = runner_hdf5(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
         
+        df = runner_zarr_parallel(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
+        
         df = runner_netcdf4_parallel(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
         df = runner_hdf5_parallel(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
@@ -442,6 +463,8 @@ def bench_python(setup, df, variable, iterations, mpi_ranks, path):
         df = runner_netcdf4(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
         
         df = runner_hdf5(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
+        
+        df = runner_zarr_parallel(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
         df = runner_netcdf4_parallel(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
@@ -575,8 +598,8 @@ def main():
     df = pd.DataFrame()
     
     #bench_variable(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_variable.json")
-    #bench_python(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_python_chunks.json")
-    bench_c(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_c.json")
+    bench_python(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_python.json")
+    #bench_c(setup, df=df, variable=variable, iterations=iterations, mpi_ranks=mpi_ranks, path="data/plotting/plotting_bench_c.json")
     
     
 
