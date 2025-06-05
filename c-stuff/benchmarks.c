@@ -515,7 +515,7 @@ void create_hdf5_subfiling(int argc, char **argv, bool with_chunking, hsize_t si
      */
     H5Pset_fapl_subfiling(fapl_id, &subf_config);
 
-    H5Pset_alignment(fapl_id, 0, 1048576);
+    H5Pset_alignment(fapl_id, 0, 33554432);
 
     H5Pset_all_coll_metadata_ops(fapl_id, true);
     H5Pset_coll_metadata_write(fapl_id, true);
