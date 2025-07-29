@@ -1,14 +1,27 @@
 from components.python.func.datastruct import bcolors as color
 import pandas as pd
 import os, shutil, subprocess, json
-    
-    
-def show_header(ds_tmp):
-    print(f"{color.OKGREEN}check header with format: {ds_tmp.engine}{color.ENDC}")
-    ds_tmp.read(pattern="header")
-    
-    print(f"{color.OKCYAN}check variable header with format: {ds_tmp.engine}{color.ENDC}")
-    ds_tmp.read(pattern="header", variable="X")
+
+
+#paths 
+
+path_to_c = "components/c"
+path_to_python = "components/python"
+path_to_visuals = "components/visualize"
+
+path_c_benchmark = "components/c/benchmarks"
+path_py_benchmark = "components/python/benchmarks"
+
+path_c_datasets = "components/c/data/datasets"
+path_py_datasets = "components/python/data/datasets"
+
+path_c_tmp = "components/c/data/tmp"
+path_py_tmp = "components/python/data/tmp"
+
+path_c_results = "components/c/data/results"
+path_py_results = "components/python/data/results"
+
+path_plotting = "components/visualize/plotting"
 
 
 def calc_chunksize(chunks):
@@ -39,16 +52,16 @@ def runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_ch
     ## run benchmark on zarr python file
     print(f"{color.OKBLUE}bench zarr with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
     
-    p = subprocess.Popen(f"python components/python/benchmarks.py -b 1 -v {variable} -i {iterations}".split())
+    p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -b 1 -v {variable} -i {iterations}".split())
     p.wait()
     
-    times = pd.read_json("components/python/data/results/test-zarr-python.json")[0].tolist()
+    times = pd.read_json(f"{path_py_results}/test-zarr-python.json")[0].tolist()
     tmp = pd.DataFrame(data={"time taken": times, "format": f"zarr-python-{shape}-{chunks}", "run":index, "engine": "zarr-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete zarr python file
-    #if os.path.exists("data/datasets/test_dataset.zarr"):
-    #    shutil.rmtree("data/datasets/test_dataset.zarr")
+    #if os.path.exists(f"{path_py_datasets}/test_dataset.zarr"):
+    #    shutil.rmtree(f"{path_py_datasets}/test_dataset.zarr")
         
     return df
 
@@ -57,10 +70,10 @@ def runner_netcdf4(df, shape, chunks, variable, iterations, total_filesize, size
     ## run benchmark on netcdf4 python file
     print(f"{color.OKBLUE}bench netcdf4 with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk:  {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
     
-    p = subprocess.Popen(f"python components/python/benchmarks.py -b 2 -v {variable} -i {iterations}".split())
+    p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -b 2 -v {variable} -i {iterations}".split())
     p.wait()
     
-    times = pd.read_json("components/python/data/results/test-netcdf4-python.json")[0].tolist()
+    times = pd.read_json(f"{path_py_results}/test-netcdf4-python.json")[0].tolist()
     tmp = pd.DataFrame(data={"time taken": times, "format": f"netcdf4-python-{shape}-{chunks}", "run":index, "engine": "netcdf4-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df= pd.concat([df, tmp], ignore_index=True)
     
@@ -73,10 +86,10 @@ def runner_netcdf4_parallel(df, shape, chunks, variable, iterations, total_files
     ## run benchmark on netcdf4 python file
     print(f"{color.OKBLUE}bench netcdf4 parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk:  {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
     
-    p = subprocess.Popen(f"mpiexec -n {mpi_ranks} python components/python/benchmarks.py -b 5 -v {variable} -i {iterations}".split())
+    p = subprocess.Popen(f"mpiexec -n {mpi_ranks} python {path_to_python}/benchmarks.py -b 5 -v {variable} -i {iterations}".split())
     p.wait()
     
-    times = pd.read_json("components/python/data/results/test-netcdf4-python-parallel.json")[0].tolist()
+    times = pd.read_json(f"{path_py_results}/test-netcdf4-python-parallel.json")[0].tolist()
     tmp = pd.DataFrame(data={"time taken": times, "format": f"netcdf4-python-parallel-{shape}-{chunks}", "run":index, "engine": "netcdf4-python-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df= pd.concat([df, tmp], ignore_index=True)
     
@@ -90,16 +103,16 @@ def runner_hdf5(df, shape, chunks, variable, iterations, total_filesize, size_ch
     ## run benchmark on hdf5 python file
     print(f"{color.OKBLUE}bench hdf5 with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
     
-    p = subprocess.Popen(f"python components/python/benchmarks.py -b 3 -v {variable} -i {iterations}".split())
+    p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -b 3 -v {variable} -i {iterations}".split())
     p.wait()
     
-    times = pd.read_json("components/python/data/results/test-hdf5-python.json")[0].tolist()
+    times = pd.read_json(f"{path_py_results}/test-hdf5-python.json")[0].tolist()
     tmp = pd.DataFrame(data={"time taken": times, "format": f"hdf5-python-{shape}-{chunks}", "run":index, "engine": "hdf5-python", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete hdf5 python file
-    #if os.path.exists("data/datasets/test_dataset.h5"):
-    #    os.remove("data/datasets/test_dataset.h5")
+    #if os.path.exists(f"{path_py_datasets}/test_dataset.h5"):
+    #    os.remove(f"{path_py_datasets}/test_dataset.h5")
         
     return df
 
@@ -109,16 +122,16 @@ def runner_hdf5_parallel(df, shape, chunks, variable, iterations, total_filesize
     ## run benchmark on hdf5 python file
     print(f"{color.OKBLUE}bench hdf5 parallel with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
     
-    p = subprocess.Popen(f"mpiexec -n {mpi_ranks} python components/python/benchmarks.py -b 6 -v {variable} -i {iterations}".split())
+    p = subprocess.Popen(f"mpiexec -n {mpi_ranks} python {path_to_python}/benchmarks.py -b 6 -v {variable} -i {iterations}".split())
     p.wait()
     
-    times = pd.read_json("components/python/data/results/test-hdf5-python-parallel.json")[0].tolist()
+    times = pd.read_json(f"{path_py_results}/test-hdf5-python-parallel.json")[0].tolist()
     tmp = pd.DataFrame(data={"time taken": times, "format": f"hdf5-python-parallel-{shape}-{chunks}", "run":index, "engine": "hdf5-python-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete hdf5 python file
-    #if os.path.exists("data/datasets/test_dataset.h5"):
-    #    os.remove("data/datasets/test_dataset.h5")
+    #if os.path.exists(f"{path_py_datasets}/test_dataset.h5"):
+    #    os.remove(f"{path_py_datasets}/test_dataset.h5")
         
     return df
 
@@ -132,7 +145,7 @@ def runner_netcdf4_c(df, shape, chunks, variable, iterations, total_filesize, si
     ## run benchmark on netcdf4 C file
     p = subprocess.Popen(f"./a.out -b 2 -i {iterations} -s {filesize}".split(), cwd="./components/c")
     p.wait()
-    tmp = pd.read_json("./components/c/components/python/data/results/test_netcdf4.json")
+    tmp = pd.read_json(f".{path_py_results}/test_netcdf4.json")
     df_netcdf4_c = tmp["netcdf4-read"].tolist()
     
     tmp = pd.DataFrame(data={"time taken": df_netcdf4_c, "format": f"netcdf4-c-[{filesize}]-{chunks}", "run":index, "engine": "netcdf4-c", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
@@ -153,15 +166,15 @@ def runner_netcdf4_c_parallel(df, shape, chunks, variable, iterations, total_fil
     p = subprocess.Popen(f"mpiexec -n {mpi_ranks} ./a.out -b 7 -i {iterations} -s {filesize}".split(), cwd="./components/c")
     p.wait()
     
-    tmp= pd.read_json("./components/c/components/python/data/results/test_netcdf4-c_parallel.json")
+    tmp= pd.read_json(f".{path_py_results}/test_netcdf4-c_parallel.json")
     df_netcdf4_c_parallel = tmp["netcdf4-c-read-parallel"].tolist()
     
     tmp = pd.DataFrame(data={"time taken": df_netcdf4_c_parallel, "format": f"netcdf4-c-parallel-[{filesize}]-{chunks}", "run":index, "engine": "netcdf4-c-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete netcdf4 C file parallel
-    if os.path.exists("data/datasets/test_dataset.nc"):
-        os.remove("data/datasets/test_dataset.nc")
+    if os.path.exists(f"{path_py_datasets}/test_dataset.nc"):
+        os.remove(f"{path_py_datasets}/test_dataset.nc")
         
     return df
 
@@ -178,15 +191,15 @@ def runner_hdf5_c(df, shape, chunks, variable, iterations, total_filesize, size_
     p = subprocess.Popen(f"./a.out -b 1 -i {iterations} -s {filesize}".split(), cwd="./components/c")
     p.wait()
 
-    tmp= pd.read_json("./components/c/components/python/data/results/test_hdf5-c.json")
+    tmp= pd.read_json(f".{path_py_results}/test_hdf5-c.json")
     df_hdf5_c = tmp["hdf5-c-read"].tolist()
 
     tmp = pd.DataFrame(data={"time taken": df_hdf5_c, "format": f"hdf5-c-[{filesize}]-{chunks}", "run":index, "engine": "hdf5-c", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True) 
 
     ## delete hdf5 C file
-    if os.path.exists("components/c/data/datasets/test_dataset_hdf5-c.h5"):
-        os.remove("components/c/data/datasets/test_dataset_hdf5-c.h5")
+    if os.path.exists(f"{path_c_datasets}/test_dataset_hdf5-c.h5"):
+        os.remove(f"{path_c_datasets}/test_dataset_hdf5-c.h5")
         
     return df
   
@@ -203,15 +216,15 @@ def runner_hdf5_c_parallel(df, shape, chunks, variable, iterations, total_filesi
     p = subprocess.Popen(f"mpiexec -n {mpi_ranks} ./a.out -b 4 -i {iterations} -s {filesize}".split(), cwd="./components/c")
     p.wait()
     
-    tmp= pd.read_json("./components/c/components/python/data/results/test_hdf5-c_parallel.json")
+    tmp= pd.read_json(f".{path_py_results}/test_hdf5-c_parallel.json")
     df_hdf5_c_parallel = tmp["hdf5-c-read-parallel"].tolist()
     
     tmp = pd.DataFrame(data={"time taken": df_hdf5_c_parallel, "format": f"hdf5-c-parallel-[{filesize}]-{chunks}", "run":index, "engine": "hdf5-c-parallel", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete hdf5 C file parallel
-    if os.path.exists("components/c/data/datasets/test_dataset_hdf5-c.h5"):
-        os.remove("components/c/data/datasets/test_dataset_hdf5-c.h5") 
+    if os.path.exists(f"{path_c_datasets}/test_dataset_hdf5-c.h5"):
+        os.remove(f"{path_c_datasets}/test_dataset_hdf5-c.h5") 
         
     return df
  
@@ -228,15 +241,15 @@ def runner_hdf5_c_async(df, shape, chunks, variable, iterations, total_filesize,
     p = subprocess.Popen(f"mpiexec -n {mpi_ranks} ./a.out -b 5 -i {iterations} -s {filesize}".split(), cwd="./components/c")
     p.wait()
     
-    tmp = pd.read_json("./components/c/components/python/data/results/test_hdf5-c_async.json")
+    tmp = pd.read_json(f".{path_py_results}/test_hdf5-c_async.json")
     df_hdf5_async = tmp["hdf5-c-async-read"].tolist()
     
     tmp = pd.DataFrame(data={"time taken": df_hdf5_async, "format": f"hdf5-async-[{filesize}]-{chunks}", "run":index, "engine": "hdf5-async", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
     df = pd.concat([df, tmp], ignore_index=True)
     
     ## delete hdf5-vol-async file C parallel
-    if os.path.exists("components/c/data/datasets/test_dataset_hdf5-c_async.h5"):
-        os.remove("components/c/data/datasets/test_dataset_hdf5-c_async.h5")
+    if os.path.exists(f"{path_c_datasets}/test_dataset_hdf5-c_async.h5"):
+        os.remove(f"{path_c_datasets}/test_dataset_hdf5-c_async.h5")
         
     return df
    
@@ -253,7 +266,7 @@ def runner_hdf5_c_subfiling(df, shape, chunks, variable, iterations, total_files
     p = subprocess.Popen(f"mpiexec -n {mpi_ranks} ./a.out -b 6 -i {iterations} -s {filesize}".split(), cwd="./components/c")
     p.wait()
     
-    tmp = pd.read_json("./components/c/components/python/data/results/test_hdf5_subfiling.json")
+    tmp = pd.read_json(f".{path_py_results}/test_hdf5_subfiling.json")
     df_hdf5_subfiling = tmp["hdf5-subfiling-read"].tolist()
     
     tmp = pd.DataFrame(data={"time taken": df_hdf5_subfiling, "format": f"hdf5-subfiling-[{filesize}]-{chunks}", "run":index, "engine": "hdf5-subfiling", "total filesize": f"{total_filesize[0]} {total_filesize[1]}", "filesize per chunk": f"{size_chunks[0]} {size_chunks[1]}"})
@@ -279,17 +292,17 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
             size_chunks = calc_chunksize(chunks=chunks)
         
         print(f"{color.WARNING}create Datasets for variable: {variable} with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
-        with open("components/python/data/tmp/run_config.json", "w") as f:
+        with open(f"{path_py_tmp}/run_config.json", "w") as f:
             json.dump(run, f)
         
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
-        p = subprocess.Popen(f"python components/python/benchmarks.py -c 1".split())
+        p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -c 1".split())
         p.wait()
         
-        p = subprocess.Popen(f"python components/python/benchmarks.py -c 2".split())
+        p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -c 2".split())
         p.wait()
         
-        p = subprocess.Popen(f"python components/python/benchmarks.py -c 3".split())
+        p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -c 3".split())
         p.wait()
         
         df = runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
@@ -304,12 +317,12 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
         
         
         ## delete zarr python file
-        if os.path.exists("data/datasets/test_dataset.zarr"):
-            shutil.rmtree("data/datasets/test_dataset.zarr")
+        if os.path.exists(f"{path_py_datasets}/test_dataset.zarr"):
+            shutil.rmtree(f"{path_py_datasets}/test_dataset.zarr")
         
         ## delete hdf5 python file
-        if os.path.exists("data/datasets/test_dataset.h5"):
-            os.remove("data/datasets/test_dataset.h5")
+        if os.path.exists(f"{path_py_datasets}/test_dataset.h5"):
+            os.remove(f"{path_py_datasets}/test_dataset.h5")
         
         
         # setup metadata for c-run
@@ -330,7 +343,7 @@ def bench_variable(setup, df, variable, iterations, mpi_ranks):
         df = runner_hdf5_c_subfiling(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
         index +=1
-        df.to_json("components/python/data/plotting/plotting_bench_variable.json")
+        df.to_json(f"{path_plotting}/plotting_bench_variable.json")
  
  
 def bench_python(setup, df, variable, iterations, mpi_ranks):
@@ -348,17 +361,17 @@ def bench_python(setup, df, variable, iterations, mpi_ranks):
             size_chunks = calc_chunksize(chunks=chunks)
         
         print(f"{color.WARNING}create Datasets for variable: {variable} with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
-        with open("components/python/data/tmp/run_config.json", "w") as f:
+        with open(f"{path_py_tmp}/run_config.json", "w") as f:
             json.dump(run, f)
         
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
-        p = subprocess.Popen(f"python components/python/benchmarks.py -c 1".split())
+        p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -c 1".split())
         p.wait()
         
-        p = subprocess.Popen(f"python components/python/benchmarks.py -c 2".split())
+        p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -c 2".split())
         p.wait()
         
-        p = subprocess.Popen(f"python components/python/benchmarks.py -c 3".split())
+        p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -c 3".split())
         p.wait()
         
         df = runner_zarr(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index)
@@ -373,15 +386,15 @@ def bench_python(setup, df, variable, iterations, mpi_ranks):
         
         
         ## delete zarr python file
-        if os.path.exists("data/datasets/test_dataset.zarr"):
-            shutil.rmtree("data/datasets/test_dataset.zarr")
+        if os.path.exists(f"{path_py_datasets}/test_dataset.zarr"):
+            shutil.rmtree(f"{path_py_datasets}/test_dataset.zarr")
         
         ## delete hdf5 python file
-        if os.path.exists("data/datasets/test_dataset.h5"):
-            os.remove("data/datasets/test_dataset.h5")
+        if os.path.exists(f"{path_py_datasets}/test_dataset.h5"):
+            os.remove(f"{path_py_datasets}/test_dataset.h5")
         
         index +=1
-        df.to_json("components/python/data/plotting/plotting_bench_python.json")   
+        df.to_json(f"{path_plotting}/plotting_bench_python.json")   
 
 
 def bench_c(setup, df, variable, iterations, mpi_ranks):
@@ -400,11 +413,11 @@ def bench_c(setup, df, variable, iterations, mpi_ranks):
             size_chunks = calc_chunksize(chunks=chunks)
         
         print(f"{color.WARNING}create Datasets for variable: {variable} with shape: {shape} and chunks: {chunks}, total filesize: {total_filesize[0]} {total_filesize[1]}, filesize per chunk: {size_chunks[0]} {size_chunks[1]}{color.ENDC}")
-        with open("components/python/data/tmp/run_config.json", "w") as f:
+        with open(f"{path_py_tmp}/run_config.json", "w") as f:
             json.dump(run, f)
         
         ## create Zarr, NetCDF4 and HDF5 file sequentially 
-        p = subprocess.Popen(f"python components/python/benchmarks.py -c 2".split())
+        p = subprocess.Popen(f"python {path_to_python}/benchmarks.py -c 2".split())
         p.wait()
         
         # setup metadata for c-run
@@ -424,7 +437,7 @@ def bench_c(setup, df, variable, iterations, mpi_ranks):
         df = runner_hdf5_c_subfiling(df, shape, chunks, variable, iterations, total_filesize, size_chunks, index, mpi_ranks)
         
         index +=1
-        df.to_json("components/python/data/plotting/plotting_bench_c.json")
+        df.to_json(f"{path_plotting}/plotting_bench_c.json")
 
    
 def main():
