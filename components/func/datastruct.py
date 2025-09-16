@@ -66,13 +66,15 @@ class Datastruct:
                 if type(path) == str:
                     self.path = path
                 
-                match parallel:
-                    case True:
-                        print(f"{bcolors.WARNING}Creating hdf5 file{bcolors.ENDC}")
-                        root = h5py.File(path, "w-", driver="mpio", comm=MPI.COMM_WORLD)
-                    case False:
-                        root = h5py.File(path, "w-")
-
+                # Create file either through mpio or serial
+                if parallel is True:
+                    print(f"{bcolors.WARNING}Creating hdf5 file{bcolors.ENDC}")
+                    root = h5py.File(path, "w-", driver="mpio", comm=MPI.COMM_WORLD)
+                else:
+                    root = h5py.File(path, "w-")
+                    
+                    
+                # Create dataset corresponding to the provide number of variables
                 for variable, element in form.items():      
                     shape = element[0]
                     chunks = element[1]
@@ -82,9 +84,23 @@ class Datastruct:
                     else:
                         x = root.create_dataset(variable, shape=shape, dtype=dtype)
                     
-                    if MPI.COMM_WORLD.rank == 0 or parallel == False:
-                        x[:] = np.random.random_sample(shape)
                     
+                    # File created dataset with values
+                    if parallel == False:
+                        x[:] = np.random.random_sample(shape)   
+                    else:
+                        rank = MPI.COMM_WORLD.rank
+                        rsize = MPI.COMM_WORLD.size
+                        total_size = shape[0]
+                        size = int(total_size / rsize)
+                        
+                        rstart = rank * size
+                        rend = rstart + size
+                        
+                        x[rstart:rend:] = np.random.random_sample(size)
+                        MPI.COMM_WORLD.Barrier()
+                
+        
                 self.dataset = root
                 root.close()
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
@@ -93,8 +109,9 @@ class Datastruct:
             case "netcdf4":
                 if type(path) == str:
                     self.path = path
-
-                root = netCDF4.Dataset(path, "w", format="NETCDF4", parallel=parallel)
+                    
+                
+                root = netCDF4.Dataset(path, "w", format="NETCDF4", parallel=parallel)  # type: ignore
 
                 root.createGroup("/")
                 used = 0
@@ -114,14 +131,29 @@ class Datastruct:
                     else: 
                         x = root.createVariable(variable, dtype, dimensions)
                     
-                    if MPI.COMM_WORLD.rank == 0 or parallel == False:
+                    if parallel == False:
                         x[:] = np.random.random_sample(shape)
-                    
+                    else:
+                        rank = MPI.COMM_WORLD.rank
+                        rsize = MPI.COMM_WORLD.size
+                        total_size = shape[0]
+                        size = int(total_size / rsize)
+                        
+                        rstart = rank * size
+                        rend = rstart + size
+                        
+                        x.set_collective(True)
+                        x[rstart:rend:] = np.random.random_sample(size)
+                        MPI.COMM_WORLD.Barrier()
+                          
+                          
                 self.dataset = root
                 root.close()
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
-                
-        return self
+        
+        
+        if MPI.COMM_WORLD.rank == 0 or parallel == False:    
+            return self
         
         
     def open(self, mode, engine = None | str, path = None | str, parallel=False):
@@ -146,12 +178,12 @@ class Datastruct:
             case "hdf5":
                 
                 if self.parallel: 
-                    self.dataset = h5py.File(self.path, mode=self.mode, driver="mpio", comm=MPI.COMM_WORLD)
+                    self.dataset = h5py.File(self.path, mode=self.mode, driver="mpio", comm=MPI.COMM_WORLD)  # type: ignore
                 else:
-                    self.dataset = h5py.File(self.path, mode=self.mode)                  
+                    self.dataset = h5py.File(self.path, mode=self.mode)  # type: ignore                  
                     
-            case "netcdf4":    
-                self.dataset = netCDF4.Dataset(self.path, mode=self.mode, format="NETCDF4", parallel=self.parallel)
+            case "netcdf4":  
+                self.dataset = netCDF4.Dataset(self.path, mode=self.mode, format="NETCDF4", parallel=self.parallel)  # type: ignore
 
                                
         return self
@@ -163,12 +195,12 @@ class Datastruct:
         match self.engine:
             case "zarr":
                 
-                size = {self.dataset[variable].shape[0]}
+                size = {self.dataset[variable].shape[0]}  # type: ignore
                 
                 for i in range(iterations):
                     print(f"i: {i} for variable: {variable} for engine: {self.engine}, size: {size}")
                     start = time.monotonic()
-                    self.dataset[variable][:]
+                    self.dataset[variable][:]  # type: ignore
                     bench.append(time.monotonic() - start)
                 
                 self.log = bench
@@ -176,12 +208,12 @@ class Datastruct:
                 
             case "hdf5":
                 
-                size = {self.dataset[variable].shape[0]}
+                size = {self.dataset[variable].shape[0]}  # type: ignore
                 
                 for i in range(iterations):
                     print(f"i: {i} for variable: {variable} for engine: {self.engine}, size: {size}")
                     start = time.monotonic()
-                    self.dataset[variable][:]
+                    self.dataset[variable][:]  # type: ignore
                     bench.append(time.monotonic() - start)
                 
                 self.log = bench
@@ -189,12 +221,12 @@ class Datastruct:
                 
             case "netcdf4":
                 
-                size = {self.dataset[variable].shape[0]}
+                size = {self.dataset[variable].shape[0]}  # type: ignore
                 
                 for i in range(iterations):
                     print(f"i: {i} for variable: {variable} for engine: {self.engine}, size: {size}")
                     start = time.monotonic()
-                    self.dataset[variable][:]
+                    self.dataset[variable][:]  # type: ignore
                     bench.append(time.monotonic() - start)
                 
                 self.log = bench
@@ -213,21 +245,21 @@ class Datastruct:
             case "zarr":
                 
                 for i in range(iterations):
-                    size = {self.dataset[variable].shape[0]}
+                    size = {self.dataset[variable].shape[0]}  # type: ignore
                     print(f"i: {i} for variable: {variable} for engine: {self.engine}, rank: {rank}, size: {size}")
                     
                     if rank == 0:
                         start = time.monotonic()
                     
-                    total_size = self.dataset[variable].shape[0]
+                    total_size = self.dataset[variable].shape[0]  # type: ignore
                     size = int(total_size / rsize)
                     
                     rstart = rank * size
                     rend = rstart + size
-                    self.dataset[variable][rstart:rend:]
+                    self.dataset[variable][rstart:rend:]  # type: ignore
                     
                     if rank == 0: 
-                        bench.append(time.monotonic() - start)
+                        bench.append(time.monotonic() - start)  # type: ignore
                     MPI.COMM_WORLD.Barrier()
                 
                 self.log = bench
@@ -238,23 +270,23 @@ class Datastruct:
             case "hdf5":
                 
                 for i in range(iterations):
-                    size = {self.dataset[variable].shape[0]}
+                    size = {self.dataset[variable].shape[0]}  # type: ignore
                     print(f"i: {i} for variable: {variable} for engine: {self.engine}, rank: {rank}, size: {size}")
                     
                     if rank == 0:
                         start = time.monotonic()
                     
                            
-                    total_size = self.dataset[variable].shape[0]
+                    total_size = self.dataset[variable].shape[0]  # type: ignore
                     size = int(total_size / rsize)
                     
                     rstart = rank * size
                     rend = rstart + size
                     
-                    self.dataset[variable][rstart:rend:]
+                    self.dataset[variable][rstart:rend:]  # type: ignore
                     
                     if rank == 0:
-                        bench.append(time.monotonic() - start)
+                        bench.append(time.monotonic() - start)  # type: ignore
                     MPI.COMM_WORLD.Barrier()
                 
                 if rank == 0:
@@ -266,24 +298,24 @@ class Datastruct:
             case "netcdf4":
                 
                 for i in range(iterations):
-                    size = {self.dataset[variable].shape[0]}
+                    size = {self.dataset[variable].shape[0]}  # type: ignore
                     print(f"i: {i} for variable: {variable} for engine: {self.engine}, rank: {rank}, size: {size}")
                     
                     if rank == 0:
                         start = time.monotonic()
                     
-                    self.dataset[variable].set_collective(True)
+                    self.dataset[variable].set_collective(True)  # type: ignore
                     
-                    total_size = self.dataset[variable].shape[0]
+                    total_size = self.dataset[variable].shape[0]  # type: ignore
                     size = int(total_size / rsize)
                     
                     rstart = rank * size
                     rend = rstart + size
                     
-                    self.dataset[variable][rstart:rend:]
+                    self.dataset[variable][rstart:rend:]  # type: ignore
                     
                     if rank == 0:
-                        bench.append(time.monotonic() - start)
+                        bench.append(time.monotonic() - start)  # type: ignore
                         
                     MPI.COMM_WORLD.Barrier()
                 
@@ -304,7 +336,7 @@ class Datastruct:
                 
                 for var in variable:
                     try:
-                        size.append({self.dataset[var].shape[0]})
+                        size.append({self.dataset[var].shape[0]})  # type: ignore
                         var_tmp.append(var)
                     except KeyError:
                         print(f"Variable: {var} does not exist.")
@@ -315,7 +347,7 @@ class Datastruct:
                     
                     for var in variable:
                         try:
-                            self.dataset[var][:]
+                            self.dataset[var][:]  # type: ignore
                         except KeyError:
                             print(f"Variable: {var} does not exist.")
                     
@@ -327,7 +359,7 @@ class Datastruct:
             case "hdf5":
                 for var in variable:
                     try:
-                        size.append({self.dataset[var].shape[0]})
+                        size.append({self.dataset[var].shape[0]})  # type: ignore
                         var_tmp.append(var)
                     except KeyError:
                         print(f"Variable: {var} does not exist.")
@@ -339,7 +371,7 @@ class Datastruct:
                     for var in variable:
                         try:
                             #self.dataset[variable].read_direct(arr)
-                            self.dataset[var][:]
+                            self.dataset[var][:]  # type: ignore
                         except KeyError:
                             print(f"Variable: {var_tmp} does not exist.")
                         
@@ -351,7 +383,7 @@ class Datastruct:
             case "netcdf4":
                 for var in variable:
                     try:
-                        size.append({self.dataset[var].shape[0]})
+                        size.append({self.dataset[var].shape[0]})  # type: ignore
                         var_tmp.append(var)
                     except IndexError:
                             print(f"Variable: {var} does not exist.")    
@@ -362,7 +394,7 @@ class Datastruct:
                     
                     for var in variable:
                         try:
-                            self.dataset[var][:]
+                            self.dataset[var][:]  # type: ignore
                         except IndexError:
                             print(f"Variable: {var} does not exist.")
                     
@@ -398,7 +430,7 @@ class Datastruct:
                 for var in variable:
                     
                     try:
-                        size.append({self.dataset[var].shape[0]})
+                        size.append({self.dataset[var].shape[0]})  # type: ignore
                         var_tmp.append(var)
                     except KeyError:
                         print(f"Variable: {var} does not exist.")
@@ -410,17 +442,17 @@ class Datastruct:
             for var in variable:
                 
                 try:
-                    total_size = self.dataset[var].shape[0]
+                    total_size = self.dataset[var].shape[0]  # type: ignore
                     size = int(total_size / rsize)
 
                     rstart = rank * size
                     rend = rstart + size
-                    self.dataset[var][rstart:rend:]
+                    self.dataset[var][rstart:rend:]  # type: ignore
                 except KeyError:
                         print(f"Variable: {var} does not exist.")
                 
             if rank == 0: 
-                bench.append(time.monotonic() - start)
+                bench.append(time.monotonic() - start)  # type: ignore
                 
             MPI.COMM_WORLD.Barrier()
                 
@@ -442,7 +474,7 @@ class Datastruct:
         for i in range(iterations):
             for var in variable:
                 try:
-                    size.append({self.dataset[var].shape[0]})
+                    size.append({self.dataset[var].shape[0]})  # type: ignore
                     var_tmp.append(var)
                 except KeyError:
                     print(f"Variable: {var} does not exist.")
@@ -454,18 +486,18 @@ class Datastruct:
             for var in variable:
                 
                 try:
-                    total_size = self.dataset[var].shape[0]
+                    total_size = self.dataset[var].shape[0]  # type: ignore
                     size = int(total_size / rsize)
 
                     rstart = rank * size
                     rend = rstart + size
 
-                    self.dataset[var][rstart:rend:]
+                    self.dataset[var][rstart:rend:]  # type: ignore
                 except KeyError:
                     print(f"Variable: {var} does not exist.")
             
             if rank == 0: 
-                bench.append(time.monotonic() - start)
+                bench.append(time.monotonic() - start)  # type: ignore
                 
             MPI.COMM_WORLD.Barrier()
                 
@@ -488,11 +520,12 @@ class Datastruct:
         for i in range(iterations):
             for var in variable:
                 try:
-                    size.append({self.dataset[var].shape[0]})
+                    size.append({self.dataset[var].shape[0]})  # type: ignore
                     var_tmp.append(var)
                 except IndexError:
                     print(f"Variable: {var} does not exist.")
             print(f"i: {i} for variable: {var_tmp} for engine: {self.engine}, rank: {rank}, size: {size}")
+            
             
             if rank == 0:
                 start = time.monotonic()
@@ -500,18 +533,19 @@ class Datastruct:
             for var in variable:
                 
                 try:
-                    total_size = self.dataset[var].shape[0]
+                    self.dataset[var].set_collective(True)  # type: ignore
+                    total_size = self.dataset[var].shape[0]  # type: ignore
                     size = int(total_size / rsize)
 
                     rstart = rank * size
                     rend = rstart + size
 
-                    self.dataset[var][rstart:rend:]
+                    self.dataset[var][rstart:rend:]  # type: ignore
                 except IndexError:
                     print(f"Variable: {var} does not exist.")
             
             if rank == 0:
-                bench.append(time.monotonic() - start)
+                bench.append(time.monotonic() - start)  # type: ignore
                 
             MPI.COMM_WORLD.Barrier()
                 
