@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from mpi4py import MPI
 import netCDF4, zarr, h5py, time
 import numpy as np
+
 
 @dataclass
 class bcolors:
@@ -32,19 +34,19 @@ class Datastruct:
         
     
     def create(self, path, form, engine, dtype="f8", parallel=False):
-        from mpi4py import MPI
 
         if type(engine) == str:
             self.engine = engine
             
-        self.parallel = parallel            
+        self.parallel = parallel
+                
             
         match self.engine:
             case "zarr":
                 if type(path) == str:
                     self.path = path
                 
-                if MPI.COMM_WORLD.rank == 0 or parallel == False:
+                if MPI.COMM_WORLD.rank == 0 or parallel == False: # type: ignore
                     root = zarr.create_group(store=path, zarr_format=3, overwrite=True)
 
                     for variable, element in form.items():
@@ -67,9 +69,9 @@ class Datastruct:
                     self.path = path
                 
                 # Create file either through mpio or serial
-                if parallel is True:
+                if self.parallel == True:
                     print(f"{bcolors.WARNING}Creating hdf5 file{bcolors.ENDC}")
-                    root = h5py.File(path, "w-", driver="mpio", comm=MPI.COMM_WORLD)
+                    root = h5py.File(path, "w-", driver="mpio", comm=MPI.COMM_WORLD) # type: ignore
                 else:
                     root = h5py.File(path, "w-")
                     
@@ -86,11 +88,11 @@ class Datastruct:
                     
                     
                     # File created dataset with values
-                    if parallel == False:
+                    if self.parallel == False:
                         x[:] = np.random.random_sample(shape)   
                     else:
-                        rank = MPI.COMM_WORLD.rank
-                        rsize = MPI.COMM_WORLD.size
+                        rank = MPI.COMM_WORLD.rank # type: ignore
+                        rsize = MPI.COMM_WORLD.size # type: ignore
                         total_size = shape[0]
                         size = int(total_size / rsize)
                         
@@ -98,7 +100,7 @@ class Datastruct:
                         rend = rstart + size
                         
                         x[rstart:rend:] = np.random.random_sample(size)
-                        MPI.COMM_WORLD.Barrier()
+                        MPI.COMM_WORLD.Barrier() # type: ignore
                 
         
                 self.dataset = root
@@ -131,11 +133,11 @@ class Datastruct:
                     else: 
                         x = root.createVariable(variable, dtype, dimensions)
                     
-                    if parallel == False:
+                    if self.parallel == False:
                         x[:] = np.random.random_sample(shape)
                     else:
-                        rank = MPI.COMM_WORLD.rank
-                        rsize = MPI.COMM_WORLD.size
+                        rank = MPI.COMM_WORLD.rank  # type: ignore
+                        rsize = MPI.COMM_WORLD.size  # type: ignore
                         total_size = shape[0]
                         size = int(total_size / rsize)
                         
@@ -144,7 +146,7 @@ class Datastruct:
                         
                         x.set_collective(True)
                         x[rstart:rend:] = np.random.random_sample(size)
-                        MPI.COMM_WORLD.Barrier()
+                        MPI.COMM_WORLD.Barrier()  # type: ignore
                           
                           
                 self.dataset = root
@@ -152,14 +154,14 @@ class Datastruct:
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
         
         
-        if MPI.COMM_WORLD.rank == 0 or parallel == False:    
+        if MPI.COMM_WORLD.rank == 0 or self.parallel == False:   # type: ignore 
             return self
         
         
     def open(self, mode, engine = None | str, path = None | str, parallel=False):
-        from mpi4py import MPI
         
         self.parallel = parallel
+        
         
         if type(path) == str:
             self.path = path
@@ -234,7 +236,7 @@ class Datastruct:
  
  
     def __bench_variable_parallel(self, variable: list, iterations):
-        from mpi4py import MPI
+        
         
         bench = []
         
@@ -417,7 +419,7 @@ class Datastruct:
  
     
     def __bench_complete_parallel_zarr(self, variable: list, iterations):
-        from mpi4py import MPI
+        
         
         bench = []
         size = []
@@ -463,7 +465,7 @@ class Datastruct:
      
         
     def __bench_complete_parallel_hdf5(self, variable: list, iterations):
-        from mpi4py import MPI
+        
         
         bench = []
         size = []
@@ -509,7 +511,7 @@ class Datastruct:
         
         
     def __bench_complete_parallel_netcdf4(self, variable: list, iterations):
-        from mpi4py import MPI
+        
         
         bench = []
         size = []
