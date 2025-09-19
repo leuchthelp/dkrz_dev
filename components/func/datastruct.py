@@ -457,8 +457,9 @@ class Datastruct:
                 bench.append(time.monotonic() - start)  # type: ignore
                 
             MPI.COMM_WORLD.Barrier()
-                
-        self.log = bench
+        
+        if rank == 0:        
+            self.log = bench
         
         MPI.COMM_WORLD.Barrier()
         print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
