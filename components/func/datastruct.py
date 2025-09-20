@@ -47,7 +47,8 @@ class Datastruct:
             case "zarr":
                 if type(path) == str:
                     self.path = path
-                
+                    
+                from mpi4py import MPI
                 if MPI.COMM_WORLD.rank == 0 or parallel == False: # type: ignore
                     root = zarr.create_group(store=path, zarr_format=3, overwrite=True)
 
