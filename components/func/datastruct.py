@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from mpi4py import MPI
 import netCDF4, zarr, h5py, time
 import numpy as np
 
@@ -39,6 +38,9 @@ class Datastruct:
             self.engine = engine
             
         self.parallel = parallel
+        
+        if self.parallel == True:
+            from mpi4py import MPI
                 
             
         match self.engine:
@@ -144,7 +146,7 @@ class Datastruct:
                         rstart = rank * size
                         rend = rstart + size
                         
-                        x.set_collective(True)
+                        #x.set_collective(True)
                         x[rstart:rend:] = np.random.random_sample(size)
                         MPI.COMM_WORLD.Barrier()  # type: ignore
                           
@@ -152,16 +154,17 @@ class Datastruct:
                 self.dataset = root
                 root.close()
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
-        
-        
-        if MPI.COMM_WORLD.rank == 0 or self.parallel == False:   # type: ignore 
-            return self
+                
+                
+        return self
         
         
     def open(self, mode, engine = None | str, path = None | str, parallel=False):
         
         self.parallel = parallel
         
+        if self.parallel == True:
+            from mpi4py import MPI
         
         if type(path) == str:
             self.path = path
@@ -218,6 +221,7 @@ class Datastruct:
                     self.dataset[variable][:]  # type: ignore
                     bench.append(time.monotonic() - start)
                 
+                self.dataset.close()
                 self.log = bench
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
                 
@@ -231,12 +235,13 @@ class Datastruct:
                     self.dataset[variable][:]  # type: ignore
                     bench.append(time.monotonic() - start)
                 
+                self.dataset.close()
                 self.log = bench
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
  
  
     def __bench_variable_parallel(self, variable: list, iterations):
-        
+        from mpi4py import MPI
         
         bench = []
         
@@ -293,7 +298,8 @@ class Datastruct:
                 
                 if rank == 0:
                     self.log = bench
-                    
+                
+                self.dataset.close()   
                 MPI.COMM_WORLD.Barrier()
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
                 
@@ -323,7 +329,8 @@ class Datastruct:
                 
                 if rank == 0:
                     self.log = bench
-                    
+                
+                self.dataset.close()    
                 MPI.COMM_WORLD.Barrier()
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
   
@@ -379,6 +386,7 @@ class Datastruct:
                         
                     bench.append(time.monotonic() - start)
                 
+                self.dataset.close()
                 self.log = bench
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
                 
@@ -402,11 +410,12 @@ class Datastruct:
                     
                     bench.append(time.monotonic() - start)
                 
+                self.dataset.close()
                 self.log = bench
                 print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
  
  
-    def __bench_complete_parallel(self, variable: list, iterations):    
+    def __bench_complete_parallel(self, variable: list, iterations):  
         match self.engine:
             case "zarr":
                 self.__bench_complete_parallel_zarr(variable=variable, iterations=iterations)
@@ -419,11 +428,10 @@ class Datastruct:
  
     
     def __bench_complete_parallel_zarr(self, variable: list, iterations):
-        
-        
         bench = []
         size = []
         var_tmp = []
+        from mpi4py import MPI  
         rank = MPI.COMM_WORLD.rank
         rsize = MPI.COMM_WORLD.size
         
@@ -465,12 +473,11 @@ class Datastruct:
         print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
      
         
-    def __bench_complete_parallel_hdf5(self, variable: list, iterations):
-        
-        
+    def __bench_complete_parallel_hdf5(self, variable: list, iterations): 
         bench = []
         size = []
         var_tmp = []
+        from mpi4py import MPI  
         rank = MPI.COMM_WORLD.rank
         rsize = MPI.COMM_WORLD.size
         
@@ -506,17 +513,17 @@ class Datastruct:
                 
         if rank == 0:
             self.log = bench
-            
+         
+        self.dataset.close()   
         MPI.COMM_WORLD.Barrier()
         print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
         
         
-    def __bench_complete_parallel_netcdf4(self, variable: list, iterations):
-        
-        
+    def __bench_complete_parallel_netcdf4(self, variable: list, iterations): 
         bench = []
         size = []
         var_tmp = []
+        from mpi4py import MPI  
         rank = MPI.COMM_WORLD.rank
         rsize = MPI.COMM_WORLD.size
         
@@ -536,7 +543,7 @@ class Datastruct:
             for var in variable:
                 
                 try:
-                    self.dataset[var].set_collective(True)  # type: ignore
+                    #self.dataset[var].set_collective(True)  # type: ignore
                     total_size = self.dataset[var].shape[0]  # type: ignore
                     size = int(total_size / rsize)
 
@@ -554,7 +561,8 @@ class Datastruct:
                 
         if rank == 0:
             self.log = bench
-            
+        
+        self.dataset.close()
         MPI.COMM_WORLD.Barrier()
         print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
     
