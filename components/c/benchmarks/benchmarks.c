@@ -915,7 +915,6 @@ void bench_variable_nczarr(hsize_t size, int iteration)
             ERR(retval);
         }
 
-
         struct timespec start, end;
 
         clock_gettime(CLOCK_MONOTONIC, &start);
@@ -1193,8 +1192,8 @@ void bench_variable_subfiling(int argc, char **argv, hsize_t size, hsize_t chunk
         memspace = H5Screate_simple(1, count, NULL);
 
         filespace = H5Dget_space(dset_id);
-            status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+
         /*
          * Initialize data buffer
          */
