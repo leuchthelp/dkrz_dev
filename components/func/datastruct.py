@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from mpi4py import MPI
 import netCDF4, zarr, h5py, time
 import numpy as np
 
@@ -20,7 +21,7 @@ class bcolors:
 class Datastruct:
     
     
-    def __init__(self, path=None, shape=[], chunks=[], mode=None, engine=None, compression=None, dataset=any, log=False, parallel=False):
+    def __init__(self, path="", shape=[], chunks=[], mode="", engine="", compression="", dataset=any, log=False, parallel=False, collective=False):
         self.path = path
         self.shape = shape
         self.chunks = chunks
@@ -30,63 +31,37 @@ class Datastruct:
         self.dataset = dataset
         self.log = log
         self.parallel = parallel
+        self.collective = collective
         
     
-    def create(self, path: str, form: dict, engine: str, parallel=False, dtype="f8"):
+    def create(self, path: str, form: dict, engine: str, parallel=False, dtype="f8", collective=False):
 
         if type(engine) == str:
             self.engine = engine
             
         self.parallel = parallel
+        self.collective = collective
                 
             
         match self.engine:
             case "zarr":
-                if self.parallel == False:
-                    self.create_zarr(form=form, path=path, dtype=dtype)
-                else:
-                    self.create_zarr_parallel(form=form, path=path, dtype=dtype)
+                self.create_zarr(form=form, path=path, dtype=dtype)
             
         
             case "hdf5":
-                if self.parallel == False:
-                    self.create_hdf5(form=form, path=path, dtype=dtype)
-                else:
-                    self.create_hdf5_parallel(form=form, path=path, dtype=dtype)
+                self.create_hdf5(form=form, path=path, dtype=dtype)
             
         
             case "netcdf4":
-                if self.parallel == False:
-                    self.create_netcdf4(form=form, path=path, dtype=dtype)
-                else:
-                    self.create_netcdf4_parallel(form=form, path=path, dtype=dtype)
+                self.create_netcdf4(form=form, path=path, dtype=dtype)
                 
                 
         return self
- 
+        
     
     def create_zarr(self, form: dict, path: str, dtype: str):
-        root = zarr.create_group(store=path, zarr_format=3, overwrite=True)
-        
-        for variable, element in form.items():
-            shape = element[0]
-            chunks = element[1]
-            
-            if len(chunks) != 0:
-                x = root.create_array(name=variable, shape=shape, chunks=chunks, dtype=dtype)
-            else: 
-                x = root.create_array(name=variable, shape=shape, dtype=dtype)
-            
-            x[:] = np.random.random_sample(shape)
-        self.dataset = root
-        print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
-        
-        return self
-    
-    
-    def create_zarr_parallel(self, form: dict, path: str, dtype: str):
-        from mpi4py import MPI
-        if MPI.COMM_WORLD.rank == 0: # type: ignore
+
+        if MPI.COMM_WORLD.rank == 0 or self.parallel == False: # type: ignore
             
             root = zarr.create_group(store=path, zarr_format=3, overwrite=True)
             
@@ -99,21 +74,38 @@ class Datastruct:
                 else: 
                     x = root.create_array(name=variable, shape=shape, dtype=dtype)
                 
-                x[:] = np.random.random_sample(shape)
+                
+                if self.parallel == True:
+                    
+                    if self.collective == True:
+                        print(bcolors.WARNING + "Setting I/O to be collective not supported" + bcolors.ENDC)
+                        x[:] = np.random.random_sample(shape)
+                    else:
+                        print(bcolors.OKBLUE + "Setting I/O to be independent" + bcolors.ENDC)
+                        x[:] = np.random.random_sample(shape)
+                    
+                else:
+                    x[:] = np.random.random_sample(shape)
+                    
+                    
             self.dataset = root
             print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
     
         return self
     
-    
+      
     def create_hdf5(self, form: dict, path: str, dtype: str):
+
         if type(path) == str:
             self.path = path
         
         # Create file either through mpio or serial
         print(f"{bcolors.WARNING}Creating hdf5 file{bcolors.ENDC}")
-        root = h5py.File(path, "w-")
-            
+        
+        if self.parallel == False:
+            root = h5py.File(path, "w-") # type: ignore
+        else:
+            root = h5py.File(path, "w-", driver="mpio", comm=MPI.COMM_WORLD)
             
         # Create dataset corresponding to the provide number of variables
         for variable, element in form.items():      
@@ -127,48 +119,26 @@ class Datastruct:
             
             
             # File created dataset with values
-            x[:] = np.random.random_sample(shape)   
-
-        self.dataset = root
-        root.close()
-        print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
-        
-        return self
-    
-    
-    def create_hdf5_parallel(self, form: dict, path: str, dtype: str):
-        from mpi4py import MPI
-        
-        if type(path) == str:
-            self.path = path
-        
-        # Create file either through mpio or serial
-        print(f"{bcolors.WARNING}Creating hdf5 file{bcolors.ENDC}")
-        root = h5py.File(path, "w-", driver="mpio", comm=MPI.COMM_WORLD) # type: ignore
-            
-            
-        # Create dataset corresponding to the provide number of variables
-        for variable, element in form.items():      
-            shape = element[0]
-            chunks = element[1]
-            
-            if len(chunks) != 0: 
-                x = root.create_dataset(variable, shape=shape, chunks=tuple(chunks), dtype=dtype)
+            if self.parallel == False:
+                x[:] = np.random.random_sample(shape)  
             else:
-                x = root.create_dataset(variable, shape=shape, dtype=dtype)
-            
-            
-            # File created dataset with values
-            rank = MPI.COMM_WORLD.rank # type: ignore
-            rsize = MPI.COMM_WORLD.size # type: ignore
-            total_size = shape[0]
-            size = int(total_size / rsize)
-            
-            rstart = rank * size
-            rend = rstart + size
-            
-            x[rstart:rend:] = np.random.random_sample(size)
-            MPI.COMM_WORLD.Barrier() # type: ignore
+                rank = MPI.COMM_WORLD.rank # type: ignore
+                rsize = MPI.COMM_WORLD.size # type: ignore
+                total_size = shape[0]
+                size = int(total_size / rsize)
+
+                rstart = rank * size
+                rend = rstart + size
+
+                if self.collective == True:
+                    print(bcolors.OKBLUE + "Setting I/O to be collective" + bcolors.ENDC)
+                    x[rstart:rend:] = np.random.random_sample(size)
+                else:
+                    print(bcolors.OKBLUE + "Setting I/O to be independent" + bcolors.ENDC)
+                    if rank == rank:
+                        x[rstart:rend:] = np.random.random_sample(size)
+                MPI.COMM_WORLD.Barrier() # type: ignore
+                
 
         self.dataset = root
         root.close()
@@ -176,48 +146,13 @@ class Datastruct:
         
         return self
     
-    
+        
     def create_netcdf4(self, form: dict, path: str, dtype: str):
         if type(path) == str:
             self.path = path
                     
                 
-        root = netCDF4.Dataset(path, "w", format="NETCDF4")  # type: ignore
-        root.createGroup("/")
-        used = 0
-        
-        for variable, element in form.items():
-            shape = element[0]
-            chunks = element[1]
-            dimensions = []
-            
-            for size in shape:
-                root.createDimension(f"{used}", size)
-                dimensions.append(f"{used}")
-                used += 1
-            
-            if len(chunks) != 0: 
-                x = root.createVariable(variable, dtype, dimensions, chunksizes=chunks)
-            else: 
-                x = root.createVariable(variable, dtype, dimensions)
-            
-            
-            x[:] = np.random.random_sample(shape)
-         
-                  
-        self.dataset = root
-        root.close()
-        print(f"{bcolors.OKGREEN}FINISHED{bcolors.ENDC}")
-        
-        return self
-    
-    
-    def create_netcdf4_parallel(self, form: dict, path: str, dtype: str):
-        if type(path) == str:
-            self.path = path
-                    
-                
-        root = netCDF4.Dataset(path, "w", format="NETCDF4", parallel=True)  # type: ignore
+        root = netCDF4.Dataset(path, "w", format="NETCDF4", parallel=self.parallel)  # type: ignore
         root.createGroup("/")
         used = 0
         
@@ -237,17 +172,25 @@ class Datastruct:
                 x = root.createVariable(variable, dtype, dimensions)
             
 
-            rank = MPI.COMM_WORLD.rank  # type: ignore
-            rsize = MPI.COMM_WORLD.size  # type: ignore
-            total_size = shape[0]
-            size = int(total_size / rsize)
-            
-            rstart = rank * size
-            rend = rstart + size
-            
-            x.set_collective(True)
-            x[rstart:rend:] = np.random.random_sample(size)
-            MPI.COMM_WORLD.Barrier()  # type: ignore
+            if self.parallel == False:
+                x[:] = np.random.random_sample(shape)    
+            else:
+                rank = MPI.COMM_WORLD.rank  # type: ignore
+                rsize = MPI.COMM_WORLD.size  # type: ignore
+                total_size = shape[0]
+                size = int(total_size / rsize)
+
+                rstart = rank * size
+                rend = rstart + size
+
+                if self.collective == True:
+                    print(bcolors.OKBLUE + "Setting I/O to be collective" + bcolors.ENDC)
+                    x.set_collective(True)
+                else:   
+                    print(bcolors.OKBLUE + "Setting I/O to be independent" + bcolors.ENDC)
+                    
+                x[rstart:rend:] = np.random.random_sample(size)
+                MPI.COMM_WORLD.Barrier()  # type: ignore
                   
                   
         self.dataset = root
@@ -260,9 +203,7 @@ class Datastruct:
     def open(self, mode: str, engine: None | str, path: None | str, parallel=False):
         
         self.parallel = parallel
-        
-        if self.parallel == True:
-            from mpi4py import MPI
+    
         
         if type(path) == str:
             self.path = path
@@ -339,8 +280,6 @@ class Datastruct:
  
  
     def __bench_variable_parallel(self, variable: list, iterations: int):
-        from mpi4py import MPI
-        
         bench = []
         
         rank = MPI.COMM_WORLD.rank
@@ -530,7 +469,6 @@ class Datastruct:
         size = []
         var_tmp = []
         
-        from mpi4py import MPI  
         rank = MPI.COMM_WORLD.rank
         rsize = MPI.COMM_WORLD.size
         
@@ -556,7 +494,14 @@ class Datastruct:
 
                     rstart = rank * size
                     rend = rstart + size
-                    self.dataset[var][rstart:rend:]  # type: ignore
+                    
+                    
+                    if self.collective == True:
+                        print(bcolors.WARNING + "Setting I/O to be collective not supported" + bcolors.ENDC)
+                    else:
+                        print(bcolors.OKBLUE + "Setting I/O to be independent" + bcolors.ENDC)
+                        self.dataset[var][rstart:rend:]  # type: ignore
+                        
                 except KeyError:
                         print(f"Variable: {var} does not exist.")
                 
@@ -577,7 +522,6 @@ class Datastruct:
         size = []
         var_tmp = []
         
-        from mpi4py import MPI  
         rank = MPI.COMM_WORLD.rank
         rsize = MPI.COMM_WORLD.size
         
@@ -601,8 +545,15 @@ class Datastruct:
 
                     rstart = rank * size
                     rend = rstart + size
-
-                    self.dataset[var][rstart:rend:]  # type: ignore
+                    
+                    if self.collective == True:
+                        print(bcolors.OKBLUE + "Setting I/O to be collective" + bcolors.ENDC)
+                        self.dataset[var][rstart:rend:]  # type: ignore
+                    else:
+                        print(bcolors.OKBLUE + "Setting I/O to be independent" + bcolors.ENDC)
+                        if rank == rank:
+                            self.dataset[var][rstart:rend:] # type: ignore
+                            
                 except KeyError:
                     print(f"Variable: {var} does not exist.")
             
@@ -624,7 +575,6 @@ class Datastruct:
         size = []
         var_tmp = []
         
-        from mpi4py import MPI  
         rank = MPI.COMM_WORLD.rank
         rsize = MPI.COMM_WORLD.size
         
@@ -644,14 +594,20 @@ class Datastruct:
             for var in variable:
                 
                 try:
-                    self.dataset[var].set_collective(True)  # type: ignore
                     total_size = self.dataset[var].shape[0]  # type: ignore
                     size = int(total_size / rsize)
 
                     rstart = rank * size
                     rend = rstart + size
 
+                    if self.collective == True:
+                        print(bcolors.OKBLUE + "Setting I/O to be collective" + bcolors.ENDC)
+                        self.dataset[var].set_collective(True)  # type: ignore
+                    else:  
+                        print(bcolors.OKBLUE + "Setting I/O to be independent" + bcolors.ENDC)
+                        
                     self.dataset[var][rstart:rend:]  # type: ignore
+                    
                 except IndexError:
                     print(f"Variable: {var} does not exist.")
             
