@@ -137,6 +137,9 @@ class BenchmarkManager:
         self.src            = bm_config["source"]
         
         
+        #Benchmark defaults
+        self.__default_datatype = "f8"
+        
         # Environment config
         self.__checkpoint   = yaml
         self.__node         = int
@@ -229,7 +232,14 @@ class BenchmarkManager:
         for value in values:
             shapes.append(value[0])
             chunks.append(value[1])
-            datatypes.append(value[2])
+            
+            datatype = None
+            try:
+                datatype = value[2]
+            except:
+                datatype = self.__default_datatype
+            finally:
+                datatypes.append(datatype)
             
         
         create_command = self.__append_flag(flag="-S", command=create_command, data=shapes)
