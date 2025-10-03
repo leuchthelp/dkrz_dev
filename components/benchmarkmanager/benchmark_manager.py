@@ -1,4 +1,5 @@
 from func.dev_utils import calc_size_unit
+from func.datastruct import bcolors
 from spackmanager import SpackManager
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -32,8 +33,6 @@ class BenchmarkManager:
     format          : str
     engine          : str
     extension       : str
-    range           : list
-    stepsize        : int
     datatype        : list
     var_to_bm       : str | list
     total_filesize  : int
@@ -49,80 +48,26 @@ class BenchmarkManager:
                  handler_id     : str, 
                  run_config     : dict, 
                  parallel       : bool, 
-                 par_backend    : None | str, 
-                 ranks          : None | int,
-                 language       : str, 
-                 format         : str, 
-                 extension      : str,
-                 range          : list, 
-                 stepsize       : int, 
-                 datatype       : list,
+                 ranks          : None | int, 
                  var_to_bm      : str | list,
                  iterations     : int, 
                  use_path       : Path, 
-                 results_path   : Path, 
+                 results_path   : Path,
+                 requested      : dict, 
                  bm_config      : dict
                  ):
         
+        
         # Object config
         self.handler_id = handler_id
-        
-        try:
-            config_par_backend = bm_config["par_backend"]
-        except:
-            config_par_backend = None
-            
-        id_str = str(run_config) + str(config_par_backend) + str(par_backend) + str(bm_config["parallel"]) + str(parallel) + str(bm_config["format"]) + str(format) + str(ranks) + str(var_to_bm)
-        self.id           = hashlib.sha256(id_str.encode()).hexdigest()
-        
-        self.use_path       = use_path
-        self.results_path   = results_path
-        self.dir_path       = Path(f"{self.use_path}/{str(self.id)}")
         self.bm_config      = bm_config
         self.sbatch_config  = "/work/ku0598/k203191/dkrz_dev/slurm-scripts/run-anything.sh"
-        
-        
-        # Benchmark config
-        self.run_config     = run_config
-        self.parallel       = parallel
-        self.par_backend    = par_backend
-        self.ranks          = ranks
-        self.collective     = False
-        self.language       = language
-        self.format         = format
-        
-        self.engine         = f"{self.format}-{self.language}-parallel" if self.parallel == True else f"{self.format}-{self.language}"
-        self.extension      = extension
-        self.range          = range
-        self.stepsize       = stepsize
-        self.datatype       = datatype
-        self.var_to_bm      = var_to_bm
-        self.iterations     = iterations
-        self.internal_i     = 1
-        self.no_caching     = False
-        self.local          = False
-        self.location       = f"{self.id}.{self.extension}"
-        
-        
-        # Benchmark info 
-        filesize_per_var    = [(key, calc_size_unit(item[0])) for key, item in run_config.items() if key in self.var_to_bm] 
-        
-        total_filesize = 0
-        for filesize in filesize_per_var:
-            total_filesize += filesize[1][0]  # type: ignore
-        
-        self.total_filesize = total_filesize  # type: ignore
-        self.unit           = filesize_per_var[0][1][1]  # type: ignore
-        self.filesize_var   = filesize_per_var   
-        self.chunksize_var  = [(key, calc_size_unit(item[1])) for key, item in run_config.items() if key in self.var_to_bm] 
-        self.show_metdata   = True 
-          
         
         # Source code
         try:
             self.create     = bm_config["create"]
         except:
-            self.create     = None
+            self.create     = ""
         
         try:
             self.compile    = bm_config["compile"]
@@ -137,14 +82,91 @@ class BenchmarkManager:
         self.src            = bm_config["source"]
         
         
-        #Benchmark defaults
-        self.__default_datatype = "f8"
+        # Benchmark config
+        self.run_config     = run_config
+        self.parallel       = parallel
+        self.par_backend    = requested["par_backend"]
+        self.ranks          = ranks
+        self.collective     = False
+        self.language       = requested["language"]
+        self.format         = requested["format"]
+        self.engine         = f"{self.format}-{self.language}-parallel" if self.parallel == True else f"{self.format}-{self.language}"
+        self.extension      = bm_config["extension"]
+        
+        try:
+            config_par_backend = self.bm_config["par_backend"]
+        except:
+            config_par_backend = None
+        
+        
+        # Assenble ID
+        id_str = (str(run_config) 
+                  + str(config_par_backend) 
+                  + str(self.par_backend) 
+                  + str(self.bm_config["parallel"]) 
+                  + str(parallel) 
+                  + str(self.bm_config["format"]) 
+                  + str(self.format) 
+                  + str(self.ranks) 
+                  + str(var_to_bm)
+                  
+                  # Reasoning: If source code changes, do not consider the same benchmark even if it might be functionally the same, could still have an effect in performance
+                  + self.src
+                  )
+        self.id             = hashlib.sha256(id_str.encode()).hexdigest()
+        
+        self.use_path       = use_path
+        self.results_path   = results_path
+        self.dir_path       = Path(f"{self.use_path}/{str(self.id)}")
+        
+        
+        datatype    = []
+        for _, item in run_config.items():
+            if any(isinstance(x, str) for x in item):
+                datatype.append(item[-1])
+            else:
+                datatype.append("f8")
+        self.datatype       = datatype
+        
+        self.var_to_bm      = var_to_bm
+        self.iterations     = iterations
+        self.internal_i     = 1
+        self.no_caching     = False
+        self.local          = False
+        self.location       = f"{self.id}.{self.extension}"
+        
+        
+        # Benchmark info 
+        filesize_per_var    = [(key, calc_size_unit(item[0])) for key, item in run_config.items() if key in self.var_to_bm] 
+        
+        total_filesize = 0
+        for filesize in filesize_per_var:
+            total_filesize += filesize[1][0]
+        
+        self.total_filesize = total_filesize  
+        self.unit           = filesize_per_var[0][1][1] 
+        self.filesize_var   = filesize_per_var   
+        self.chunksize_var  = [(key, calc_size_unit(item[1])) for key, item in run_config.items() if key in self.var_to_bm] 
+        self.show_metdata   = True
+        
         
         # Environment config
         self.__checkpoint   = yaml
         self.__node         = int
         self.__node_info    = yaml
         self.__profiler     = bool
+        
+        
+        print(bcolors.OKBLUE +  f"Managing Benchmark with; file-structure: {run_config}, " 
+                                f"datatype: {datatype}, "
+                                f"parallel: {parallel}, " 
+                                f"ranks: {self.ranks}, "
+                                f"par_backend: {self.par_backend}, "
+                                f"language: {self.language}, "
+                                f"format: {self.format}, " 
+                                f"{self.iterations} iterations. " 
+                                f"It will be stored in {self.use_path}" + bcolors.ENDC
+            )   
     
     
     def run(self):
@@ -165,7 +187,7 @@ class BenchmarkManager:
                 self.__create_file()
 
 
-            #self.__execute_file()
+            self.__execute_file()
         
         finally:
             shutil.rmtree(path=self.dir_path)
@@ -174,7 +196,7 @@ class BenchmarkManager:
 
  
     def __create_file(self):
-        create = self.create.replace("#MAIN", self.__replace_main(self.language)) # type: ignore
+        create = self.create.replace("#MAIN", self.__replace_main(self.language))
         
         path_to_create_file = Path(f"{self.dir_path}/create.{self.language}")
         with open(path_to_create_file, "w") as file:
@@ -216,8 +238,6 @@ class BenchmarkManager:
         
         # Transform run config into 4 lists; variables (list(string)), shape (list(list(int))), chunks (list(list(int))) & datatypes (list(string)) 
         
-        print(list(self.run_config.values()))
-        
         flag_variable = "-V"
         if flag_variable not in create_command:
             create_command = create_command + f" {flag_variable}"
@@ -228,18 +248,10 @@ class BenchmarkManager:
         values = list(self.run_config.values())
         shapes = []
         chunks = []
-        datatypes = []
+        datatypes = self.datatype
         for value in values:
             shapes.append(value[0])
             chunks.append(value[1])
-            
-            datatype = None
-            try:
-                datatype = value[2]
-            except:
-                datatype = self.__default_datatype
-            finally:
-                datatypes.append(datatype)
             
         
         create_command = self.__append_flag(flag="-S", command=create_command, data=shapes)
@@ -336,7 +348,7 @@ class BenchmarkManager:
                 print(p.stderr)
                 print(p.stdout)
             else: 
-                p = subprocess.run(run_command.split(), capture_output=True, text=True, cwd=self.dir_path)  # type: ignore
+                p = subprocess.run(run_command.split(), capture_output=True, text=True, cwd=self.dir_path)   # type: ignore
                 print(p.stderr)
                 print(p.stdout)
 
@@ -344,20 +356,20 @@ class BenchmarkManager:
                     new_path = Path(f"{self.dir_path}/{i}")
                     new_path.mkdir(parents=True)
                     
-                    current_path = None
+                    current_path = Path()
                     for path in self.dir_path.rglob(f"*.{self.extension}"):
                         current_path = path
                         
-                    new_file_location = shutil.move(current_path.absolute(), f"{new_path.absolute()}/{i}.{self.extension}")  # type: ignore
+                    new_file_location = shutil.move(current_path.absolute(), f"{new_path.absolute()}/{i}.{self.extension}")  
                     
                     #print(f"current location: {self.location} -> new location: {new_file_location}")
                     
-                    run_command = run_command.replace(f"-l {self.location}", f"-l {new_file_location}")  # type: ignore
+                    run_command = run_command.replace(f"-l {self.location}", f"-l {new_file_location}")   # type: ignore
                     #print(f"new run command: {run_command}")
                     self.location = new_file_location
                 
         
-    def __replace_main(self, language):
+    def __replace_main(self, language: str) -> str:  # type: ignore
         
         match language:
             
@@ -367,6 +379,8 @@ class BenchmarkManager:
             
             case "py":
                 return """
+import ast
+            
 def main():
 
     parser = argparse.ArgumentParser(
@@ -375,19 +389,40 @@ def main():
     )
     parser.add_argument("-c", "--create", type=int, default=-1, help="creates Zarr, NetCDF4 and HDF5 Files using a previously saved run format")
     parser.add_argument("-b", "--benchmark", type=int, default=-1, help="benchmark to run")
-    parser.add_argument("-i", "--iterations", type=int, default=1, help="number of internal iterations to run the benchmark for. Will cause caching effects")
     parser.add_argument("-v", "--var_to_bm", type=str, default=None, help="var_to_bm to read, if none is provided all are read")
+    parser.add_argument("-V", "--variable", type=str, default=None, help="variables to create")
+    parser.add_argument("-S", "--shape", type=str, default=None, help="shapes per variable to create")
+    parser.add_argument("-C", "--chunk", type=str, default=None, help="chunks per variable to create")
+    parser.add_argument("-D", "--datatype", type=str, default=None, help="datatype per variable to create")
     parser.add_argument("-p", "--parallel", type=bool, default=False, help="If to run the benchmark using parallelism of any kind supported")
+    parser.add_argument("-i", "--iterations", type=int, default=1, help="number of internal iterations to run the benchmark for. Will cause caching effects")
     parser.add_argument("-l", "--location", type=str, default="", help="Location where file will be create / saved")
-    parser.add_argument("-o", "--out_in", type=bool, default=False, help="Set I/O to either use independent (default or False) or collective I/O (True)")
+    parser.add_argument("-I", "--input_output", type=bool, default=False, help="Set I/O to either use independent (default or False) or collective I/O (True)")
     args = parser.parse_args()
     
     match args.benchmark:
         case 1:
-            bench(iterations=args.iterations, variable=args.var_to_bm, parallel=args.parallel, path=args.location, collective=args.out_in)
+            bench(iterations=args.iterations, 
+                    variable=args.var_to_bm, 
+                    parallel=args.parallel, 
+                    path=args.location, 
+                    collective=args.input_output
+                    )
         case -1:
+            variables   = args.variable.split(",")
+            shapes      = [ast.literal_eval(e) for e in args.shape.split(",")]
+            chunks      = [ast.literal_eval(e) for e in args.chunk.split(",")]
+            datatypes   = args.datatype.split(",")
+            
             if args.create != -1:
-                create(selection=args.create, parallel=args.parallel, path=args.location, collective=args.out_in)
+                create(variables=variables, 
+                        shapes=shapes, 
+                        chunks=chunks, 
+                        datatypes=datatypes, 
+                        parallel=args.parallel, 
+                        path=args.location, 
+                        collective=args.input_output
+                        )
 
 if __name__=="__main__":
     main()
@@ -413,7 +448,8 @@ typedef struct args_t
     char *shape;
     char *chunk;
     char *datatype;
-    hsize_t factor;
+    int parallel;
+    int input_output;
     int iterations;
     char *location;
 } args_t;
@@ -430,9 +466,6 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
     case 'b':
         arguments->benchmark = atoi(arg);
         break;
-    case 'i':
-        arguments->iterations = atoi(arg);
-        break;
     case 'v':
         arguments->var_to_bm = arg;
         break;
@@ -440,7 +473,6 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
         arguments->variable = arg;
         break;
     case 'S':
-
         arguments->shape = arg;
         break;
     case 'C':
@@ -449,8 +481,14 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
     case 'D':
         arguments->datatype = arg;
         break;
-    case 'f':
-        arguments->factor = strtoull(arg, NULL, 10);
+    case 'p':
+        arguments->parallel = strtoull(arg, NULL, 10);
+        break;
+    case 'i':
+        arguments->iterations = atoi(arg);
+        break;
+    case 'I':
+        arguments->input_output = atoi(arg);
         break;
     case 'l':
         arguments->location = arg;
@@ -465,15 +503,16 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 
 static struct argp_option options[] = {
     {"create file", 'c', "NUM", 0, "If to create a file"},
-    {"benchmark", 'b', "NUM", 0, "If to run benchmark"},
-    {"var_to_bm", 'v', "c", 0, "Variables within a file to benchmark"},
-    {"variable", 'V', "c", 0, "Variables the file should contain"},
-    {"shape", 'S', "c", 0, "Specifiy the shapes of the file you want to create as list of lists"},
-    {"chunk", 'C', "c", 0, "Specifiy the chunksize of the file you want to create as list of lists"},
-    {"datatype", 'D', "c", 0, "Data types each variable should have as list"},
-    {"factor", 'f', "NUM", 0, "Factor to multiply shape with to increase / decrease size"},
-    {"iterations", 'i', "NUM", 0, "Ammount of iterations the benchmark should run"},
-    {"location", 'l', "c", 0, "Location where file is going to be created / read from"},
+    {"benchmark",   'b', "NUM", 0, "If to run benchmark"},
+    {"var_to_bm",   'v', "c",   0, "Variables within a file to benchmark"},
+    {"variable",    'V', "c",   0, "Variables the file should contain"},
+    {"shape",       'S', "c",   0, "Specifiy the shapes of the file you want to create as list of lists"},
+    {"chunk",       'C', "c",   0, "Specifiy the chunksize of the file you want to create as list of lists"},
+    {"datatype",    'D', "c",   0, "Data types each variable should have as list"},
+    {"parallel",    'p', "NUM", 0, "If to use parallelism or not"},
+    {"iterations",  'i', "NUM", 0, "Ammount of iterations the benchmark should run"},
+    {"input-output",'I', "NUM", 0, "Set I/O to either use independent (default or False) or collective I/O (True)"},
+    {"location",    'l', "c",   0, "Location where file is going to be created / read from"},
     {0}};
 
 hsize_t word_count(char *smth, char delim)
@@ -582,20 +621,18 @@ int main(int argc, char *argv[])
     args_t arguments;
     arguments.create = -1;
     arguments.benchmark = -1;
-    hsize_t tmpsize = 134217728;
     arguments.var_to_bm = "[]";
     arguments.variable = "[]";
     arguments.shape = "[]";
     arguments.chunk = "[]";
     arguments.datatype = "[]";
-    arguments.factor = 1;
+    arguments.parallel = 1;
     arguments.iterations = 1;
     arguments.location = "test.c";
 
-    printf("Parsing: %d, var_to_bm: %s, variables: %s, shapes: %s, chunks: %s, datatypes: %s, factor: %lu, iterations: %d\\n", arguments.benchmark, arguments.var_to_bm, arguments.variable, arguments.shape, arguments.chunk, arguments.datatype, arguments.factor, arguments.iterations);
+    printf("Parsing: %d, var_to_bm: %s, variables: %s, shapes: %s, chunks: %s, datatypes: %s, parallel: %d, iterations: %d\\n", arguments.benchmark, arguments.var_to_bm, arguments.variable, arguments.shape, arguments.chunk, arguments.datatype, arguments.parallel, arguments.iterations);
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
-    hsize_t size = tmpsize * arguments.factor;
     char *location = arguments.location;
     int iterations = arguments.iterations;
     int res;
@@ -616,7 +653,7 @@ int main(int argc, char *argv[])
     hsize_t **chunks = calloc(var_count, sizeof(hsize_t *));
     hsize_t chunks_size[var_count];
 
-    printf("Parsing: %d, factor: %lu, iterations: %d\\n", arguments.benchmark, arguments.factor, arguments.iterations);
+    printf("Parsing: %d, parallel: %d, iterations: %d\\n", arguments.benchmark, arguments.parallel, arguments.iterations);
 
     // arguments parsing for creation of file
     switch (arguments.create)
