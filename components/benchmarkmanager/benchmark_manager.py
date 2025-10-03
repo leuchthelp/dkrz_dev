@@ -5,7 +5,6 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 import shutil
 import yaml
-import json
 import hashlib
 import subprocess
 import os
@@ -19,7 +18,62 @@ class BenchmarkManager:
     ----------
     handler_id: str
         Unique handler ID to identify the handler assigned to this specific benchmark.
-    
+        
+    id: str
+        Unique ID to identify this specific benchmark with.
+        
+    run_config: dict
+        The run configuration that was requested, contains the basic structure of a file that will be created.
+        
+    parallel: bool
+        If parallelism is enabled.
+        
+    par_backend: None | str
+        What kind of backend is being used to facilitate parallelism. Will be "None" if parallelism is not requested.
+        
+    ranks: int
+        Represents how many cores are used to execute the benchmark following the MPI terminology. Will always be 1 for serial benchmarks.
+        
+    collective: None | bool
+        If collective MPI I/O is requested, default is "False" for independent I/O. Will be none for serial benchmarks.
+        
+    langauge: str
+
+    format: str
+        Simplified representation of the kind of benchmark that was requested.
+        
+    engine: str
+        Represent the file format following the xarray terminology.
+        
+    extension: str
+        File extension used for the created file.
+        
+    datatype: list
+        Datatypes of each variable / dataset within the file.
+        
+    var_to_bm: str | list
+        Which variable / dataset will be benchmarked from the file. Can either be a single value string or a list of strings.
+        
+    total_filesize: int
+        The total filesize benchmarked calculated from all variables / datasets were requested for benchmarking.
+        
+    unit: str
+        Unit for the total filesize, i.e. MB, GB, etc.
+        
+    filesize_var: list
+        filesize per variable / dataset.
+        
+    chunksize_var: list
+        filesize per variable / dataset chunks.
+        
+    iterations: int
+        total iterations performed. In the context of a slurm environment equal to the number of unique node allocations performed.
+        
+    internal_i: int
+        The benchmark itself can have iterations to be performed as well, this would result in caching of files on the nodes used in the context of a slurm environment.
+        
+    bm_config: dict
+        The configuration of the benchmark file with all it's adjacent information like source code, commands and such.
     """
     
     handler_id      : str
@@ -27,8 +81,8 @@ class BenchmarkManager:
     run_config      : dict
     parallel        : bool
     par_backend     : None | str
-    ranks           : None | int
-    collective      : bool
+    ranks           : int
+    collective      : None | bool
     language        : str
     format          : str
     engine          : str
@@ -47,8 +101,9 @@ class BenchmarkManager:
     def __init__(self, 
                  handler_id     : str, 
                  run_config     : dict, 
-                 parallel       : bool, 
-                 ranks          : None | int, 
+                 parallel       : bool,
+                 collective     : None | bool, 
+                 ranks          : int, 
                  var_to_bm      : str | list,
                  iterations     : int, 
                  use_path       : Path, 
@@ -86,8 +141,8 @@ class BenchmarkManager:
         self.run_config     = run_config
         self.parallel       = parallel
         self.par_backend    = requested["par_backend"]
+        self.collective     = collective
         self.ranks          = ranks
-        self.collective     = False
         self.language       = requested["language"]
         self.format         = requested["format"]
         self.engine         = f"{self.format}-{self.language}-parallel" if self.parallel == True else f"{self.format}-{self.language}"
@@ -105,10 +160,11 @@ class BenchmarkManager:
                   + str(self.par_backend) 
                   + str(self.bm_config["parallel"]) 
                   + str(parallel) 
-                  + str(self.bm_config["format"]) 
-                  + str(self.format) 
+                  + self.bm_config["format"]
+                  + self.format
                   + str(self.ranks) 
                   + str(var_to_bm)
+                  + str(collective)
                   
                   # Reasoning: If source code changes, do not consider the same benchmark even if it might be functionally the same, could still have an effect in performance
                   + self.src
@@ -160,6 +216,7 @@ class BenchmarkManager:
         print(bcolors.OKBLUE +  f"Managing Benchmark with; file-structure: {run_config}, " 
                                 f"datatype: {datatype}, "
                                 f"parallel: {parallel}, " 
+                                f"collective: {collective}, "
                                 f"ranks: {self.ranks}, "
                                 f"par_backend: {self.par_backend}, "
                                 f"language: {self.language}, "
@@ -173,9 +230,6 @@ class BenchmarkManager:
         self.dir_path.mkdir(parents=True)
 
         try:
-            with open(f"{self.dir_path}/run_config.json", "w") as f:
-                json.dump(self.run_config, f)
-
             self_dict = asdict(self)  
 
             if self.show_metdata:
@@ -219,7 +273,7 @@ class BenchmarkManager:
             create_command = create_command.replace("-n ", f"-n {self.ranks} ")
             
             if self.collective == True:
-                create_command = create_command + f"-o {self.collective}"
+                create_command = create_command + f"-I {self.collective}"
 
 
         create_command = create_command.replace("{runnable}", f"{create_file} ")
@@ -320,7 +374,7 @@ class BenchmarkManager:
             run_command = run_command.replace("-n", f"-n {self.ranks} ")
             
             if self.collective == True:
-                run_command = run_command + f"-o {self.collective}"
+                run_command = run_command + f"-I {self.collective}"
 
         
         tmp = ",".join(self.var_to_bm)    
