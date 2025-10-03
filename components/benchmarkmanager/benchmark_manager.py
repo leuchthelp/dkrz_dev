@@ -845,15 +845,11 @@ int main(int argc, char *argv[])
 
     def __assemble_sbatch(self, path: str, slurm_options: str):
         
-        print(slurm_options)
         if "#SBATCH --nodes=" not in slurm_options:
-            slurm_options = slurm_options + "#SBATCH --nodes="
-            
-        slurm_options = slurm_options.replace("#SBATCH --nodes=", f"#SBATCH --nodes={self.nodes}")
-        print(slurm_options)
+            slurm_options = slurm_options + f"#SBATCH --nodes={self.nodes}"
         
-        sbatch_location = Path(f"{path}.sh")
-        with open(sbatch_location, "w") as file:
+        sbatch_location = f"{path}.sh"
+        with open(Path(f"{self.dir_path}/{sbatch_location}"), "w") as file:
             file.write(f"""#!/bin/bash
 
 {slurm_options}
