@@ -120,10 +120,10 @@ class BenchmarkManager:
         
         
         # Object config
-        self.handler_id = handler_id
+        self.handler_id     = handler_id
         self.bm_config      = bm_config
         self.sbatch_location= "slurm config"
-        self.slurm_options   = slurm_options
+        self.slurm_options  = slurm_options
         
         # Source code
         try:
@@ -183,8 +183,8 @@ class BenchmarkManager:
                   + str(self.par_backend) 
                   + str(self.bm_config["parallel"]) 
                   + str(self.parallel) 
-                  + self.bm_config["format"]
-                  + self.format
+                  + str(self.bm_config["format"])
+                  + str(self.format)
                   + str(self.ranks) 
                   + str(self.var_to_bm)
                   + str(self.collective)
@@ -256,6 +256,7 @@ class BenchmarkManager:
         
         finally:
             shutil.rmtree(path=self.dir_path)
+            pass
             
         return self.id, self_dict
 
@@ -275,7 +276,15 @@ class BenchmarkManager:
         
         
         create_commands = self.bm_config["create_command"]
-        create_command  = create_commands["serial"]
+        
+        create_command = ""
+        try:
+            create_command  = create_commands["serial"]
+        except KeyError as e:
+            if self.bm_config["parallel"] == True:
+                pass
+            else: 
+                raise e
         
         
         if self.par_backend in create_commands.keys():
@@ -354,8 +363,8 @@ class BenchmarkManager:
         
         print(compile_command)
         p = subprocess.run(compile_command.split(), capture_output=True, text=True, cwd=self.dir_path, check=True)
-        print(p.stderr)
-        print(p.stdout)
+        #print(p.stderr)
+        #print(p.stdout)
         
         return compiled_file
   
@@ -363,7 +372,6 @@ class BenchmarkManager:
     def __execute_file(self):
         
         execute = self.src.replace("#MAIN", self.__replace_main(self.language))
-        execute = execute.replace("#RESULT", self.__replace_result(self.language))
         
         path_to_tmp_file = Path(f"{self.dir_path}/execute.{self.language}")
         with open(path_to_tmp_file, "w") as file:
@@ -377,7 +385,15 @@ class BenchmarkManager:
         
         
         run_commands = self.bm_config["run_command"]
-        run_command  = run_commands["serial"]
+        
+        run_command = ""
+        try:
+            run_command  = run_commands["serial"]
+        except KeyError as e:
+            if self.bm_config["parallel"] == True:
+                pass
+            else: 
+                raise e
         
         if self.par_backend in run_commands.keys():
             run_command = run_commands[str(self.par_backend)]
@@ -388,24 +404,38 @@ class BenchmarkManager:
                 run_command = run_command + f"-I {self.collective}"
 
         
-        tmp = ",".join(self.var_to_bm)    
-        run_command = run_command.replace("-v", f"-v {tmp} ")
         run_command = run_command.replace("{runnable}", f"{tmp_file} ")
         run_command = run_command.replace("-i", f"-i {self.internal_i} ")
         run_command = run_command.replace("-p", f"-p {self.parallel} ")
         
         
         if "-b" not in run_command:
-            run_command = run_command + " -b 1"
+            run_command = run_command + "-b 1 "
             
         if "-l" not in run_command:
-                run_command = run_command + f" -l {self.location}"
+            run_command = run_command + f"-l {self.location} "
+            
+        vars_to_bm = ",".join(self.var_to_bm)
+        if "-v" not in run_command:
+            run_command = run_command + "-v"
+            
+        run_command = run_command.replace("-v", f"-v {vars_to_bm} ")
+        
+
+        if self.language == "c":
+            
+            size = []
+            for var in self.var_to_bm:
+                size.append(self.run_config[var][0])
+            
+            run_command = run_command + f"-s {sum([sum(x) for x in size])}"
 
 
         if  "SLURM_JOB_ID" in os.environ and self.local is False:
             run_command = ["sbatch", self.__assemble_sbatch(self.sbatch_location, self.slurm_options), run_command] # type: ignore
 
 
+        print(run_command)
         for i in range(self.iterations):
             
             if  "SLURM_JOB_ID" in os.environ and self.local == False:
@@ -443,7 +473,7 @@ class BenchmarkManager:
             ##################################################################################################
             
             case "py":
-                return """
+                return f"""
 import ast
             
 def main():
@@ -467,12 +497,22 @@ def main():
     
     match args.benchmark:
         case 1:
-            bench(iterations=args.iterations, 
-                    variable=args.var_to_bm, 
-                    parallel=args.parallel, 
-                    path=args.location, 
-                    collective=args.input_output
-                    )
+            result = bench(iterations=args.iterations, 
+                            variable=args.var_to_bm, 
+                            parallel=args.parallel, 
+                            path=args.location, 
+                            collective=args.input_output
+                            )
+                    
+            from mpi4py import MPI
+            if args.parallel is False or MPI.COMM_WORLD.rank == 0:
+                from pathlib import Path
+                if Path("{self.results_path.absolute()}/{self.id}.json").exists():
+                    with open("{self.results_path.absolute()}/{self.id}.json", "r") as t:
+                        result.extend(json.load(t))    
+
+                with open("{self.results_path.absolute()}/{self.id}.json", "w") as f:
+                    json.dump(result, f)
         case -1:
             variables   = args.variable.split(",")
             shapes      = [ast.literal_eval(e) for e in args.shape.split(",")]
@@ -492,17 +532,68 @@ def main():
 if __name__=="__main__":
     main()
         """
+            
             ##################################################################################################
             #### C Part to be injected for #MAIN
             ##################################################################################################
         
             case "c":
-                return """
+                tmp = """
             
 #include <unistd.h>
 #include <argp.h>
 #include <stdio.h>
 #include <string.h>
+
+void save_list_to_json(double *arr, char *file_name, size_t size)
+{
+    FILE *fptr;
+
+    fptr = fopen(file_name, "r+");
+    
+    if (fptr == NULL)
+    {
+        fptr = fopen(file_name, "w");
+        
+        if (fptr == NULL)
+        {
+            fprintf(stderr, "cannot open target file %s\\n", file_name);
+            exit(1);
+        }
+    }
+    
+    if(fgetc(fptr) != 91){     
+        fprintf(fptr, "[");
+    } else {
+        (void)0;
+    }
+    
+    int ch;
+    while ((ch = fgetc(fptr)) != EOF)
+    {   
+        if (ch == ']')
+        {
+            fseek(fptr, -1, SEEK_CUR);
+            fputc(',',fptr);
+            fseek(fptr, 0, SEEK_CUR);
+        }
+    }
+
+    for (size_t i = 0; i < size; i++)
+    {
+        fprintf(fptr, "%f", arr[i]);
+
+        if (i != size - 1)
+        {
+            fprintf(fptr, ",");
+        }
+    }
+
+    fprintf(fptr, "]");
+
+    fclose(fptr);
+}
+
 
 typedef struct args_t
 {
@@ -510,6 +601,7 @@ typedef struct args_t
     int benchmark;
     char *var_to_bm;
     char *variable;
+    hsize_t size;
     char *shape;
     char *chunk;
     char *datatype;
@@ -536,6 +628,9 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
         break;
     case 'V':
         arguments->variable = arg;
+        break;
+    case 's':
+        arguments->size = strtoull(arg, NULL, 10);
         break;
     case 'S':
         arguments->shape = arg;
@@ -571,6 +666,7 @@ static struct argp_option options[] = {
     {"benchmark",   'b', "NUM", 0, "If to run benchmark"},
     {"var_to_bm",   'v', "c",   0, "Variables within a file to benchmark"},
     {"variable",    'V', "c",   0, "Variables the file should contain"},
+    {"size",        's', "NUM", 0, "Specifiy the size of the file to read"},
     {"shape",       'S', "c",   0, "Specifiy the shapes of the file you want to create as list of lists"},
     {"chunk",       'C', "c",   0, "Specifiy the chunksize of the file you want to create as list of lists"},
     {"datatype",    'D', "c",   0, "Data types each variable should have as list"},
@@ -648,7 +744,6 @@ int get_individual_as_jagged(char *smth, hsize_t size, hsize_t **buf, hsize_t *j
         if (current_var == size)
             break;
         hsize_t dims = word_count(token, ',');
-        printf("token: %s, dim count: %ld \\n", token, dims);
 
         buf[current_var] = calloc(dims, sizeof(hsize_t));
         int res = get_list_contents(token, buf[current_var]);
@@ -656,27 +751,6 @@ int get_individual_as_jagged(char *smth, hsize_t size, hsize_t **buf, hsize_t *j
         current_var++;
     }
     return 0;
-}
-
-void print_jagged(hsize_t **jagged_arr, hsize_t *jagged_size, hsize_t count)
-{
-
-    hsize_t k = 0;
-    // Display elements in Jagged array
-    for (int i = 0; i < 2; i++)
-    {
-
-        hsize_t *p = jagged_arr[i];
-        for (int j = 0; j < jagged_size[k]; j++)
-        {
-
-            printf("%ld ", *p);
-            // move the pointer to the next element
-            p++;
-        }
-        printf("\\n");
-        k++;
-    }
 }
 
 int main(int argc, char *argv[])
@@ -688,6 +762,7 @@ int main(int argc, char *argv[])
     arguments.benchmark = -1;
     arguments.var_to_bm = "[]";
     arguments.variable = "[]";
+    arguments.size = 134217728;
     arguments.shape = "[]";
     arguments.chunk = "[]";
     arguments.datatype = "[]";
@@ -697,6 +772,8 @@ int main(int argc, char *argv[])
 
     printf("Parsing: %d, var_to_bm: %s, variables: %s, shapes: %s, chunks: %s, datatypes: %s, parallel: %d, iterations: %d\\n", arguments.benchmark, arguments.var_to_bm, arguments.variable, arguments.shape, arguments.chunk, arguments.datatype, arguments.parallel, arguments.iterations);
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
+    
+    hsize_t size = arguments.size;
 
     char *location = arguments.location;
     int iterations = arguments.iterations;
@@ -704,11 +781,9 @@ int main(int argc, char *argv[])
 
     // get variables to benchmark
     hsize_t var_bm_count = word_count(arguments.var_to_bm, ',');
-    printf("word count->variables to benchmark: %ld\\n", var_bm_count);
 
     // get variables
     hsize_t var_count = word_count(arguments.variable, ',');
-    printf("word count->variables for dataset creation: %ld\\n", var_count);
 
     // get shapes
     hsize_t **shapes = calloc(var_count, sizeof(hsize_t *));
@@ -731,10 +806,6 @@ int main(int argc, char *argv[])
         char **variables = calloc(var_count, sizeof(char *));
         res = get_chars(arguments.variable, var_count, variables);
 
-        for (int i = 0; i < var_count; i++)
-        {
-            printf("%s\\n", variables[i]);
-        }
 
         // get shapes
         res = get_individual_as_jagged(arguments.shape, var_count, shapes, shapes_size);
@@ -749,13 +820,9 @@ int main(int argc, char *argv[])
         char **datatypes = calloc(var_count, sizeof(char *));
         res = get_chars(arguments.datatype, var_count, datatypes);
 
-        for (int i = 0; i < var_count; i++)
-        {
-            printf("%s\\n", datatypes[i]);
-        }
 
         printf("Creating hdf5 file\\n");
-        create(false, variables, shapes, chunks, datatypes, location);
+        create(argc, argv, false, variables, shapes, chunks, datatypes, location);
 
         // Free variables, datatypes, shape and chunks
         for (int i = 0; i < var_count; i++)
@@ -800,13 +867,13 @@ int main(int argc, char *argv[])
         char **vars_to_bm = calloc(var_bm_count, sizeof(char *));
         res = get_chars(arguments.var_to_bm, var_bm_count, vars_to_bm);
 
-        for (int i = 0; i < var_bm_count; i++)
-        {
-            printf("%s\\n", vars_to_bm[i]);
-        }
+        
+        double * result = calloc(iterations, sizeof(double));
 
-        printf("Running hdf5 benchmark for %d iterations\\n", iterations);
-        bench(size, vars_to_bm, iterations, location);
+        printf("Running hdf5 benchmark for %d iterations reading %ld elements\\n", iterations, size);
+        bench(argc, argv, size, vars_to_bm, iterations, location, result);
+        
+        save_list_to_json(result, "<result-path>.json", iterations);
 
         // Free variables to benchmark
         for (int i = 0; i < var_bm_count; i++)
@@ -814,6 +881,7 @@ int main(int argc, char *argv[])
             free(vars_to_bm[i]);
         }
         free(vars_to_bm);
+        free(result);
         break;
     case ARGP_KEY_ARG:
         return 0;
@@ -822,28 +890,14 @@ int main(int argc, char *argv[])
     }
     return 0;
 }
-"""
-     
-        
-    def __replace_result(self, language):
-        
-        match language:
-            case "py":
-                return f"""from mpi4py import MPI
-    if parallel is False or MPI.COMM_WORLD.rank == 0:
-        from pathlib import Path
-        if Path("{self.results_path.absolute()}/{self.id}.json").exists():
-            with open("{self.results_path.absolute()}/{self.id}.json", "r") as t:
-                result.extend(json.load(t))    
-        
-        with open("{self.results_path.absolute()}/{self.id}.json", "w") as f:
-            json.dump(result, f)
-                        """
-            case "c":
-                return ""
-            
+"""         
+                tmp = tmp.replace("<result-path>", f"{self.results_path.absolute()}/{self.id}")
+                return tmp
+           
 
     def __assemble_sbatch(self, path: str, slurm_options: str):
+        
+        slurm_options.replace("#SBATCH --nodes=", "  #")
         
         if "#SBATCH --nodes=" not in slurm_options:
             slurm_options = slurm_options + f"#SBATCH --nodes={self.nodes}"
