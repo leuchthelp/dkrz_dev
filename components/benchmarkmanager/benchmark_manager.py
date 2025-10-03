@@ -25,6 +25,12 @@ class BenchmarkManager:
     run_config: dict
         The run configuration that was requested, contains the basic structure of a file that will be created.
         
+    bm_config: dict
+        The configuration of the benchmark file with all it's adjacent information like source code, commands and such.
+        
+    nodes: int
+        Number of nodes used with the context of a slurm environment, otherwise always 1.
+        
     parallel: bool
         If parallelism is enabled.
         
@@ -71,14 +77,13 @@ class BenchmarkManager:
         
     internal_i: int
         The benchmark itself can have iterations to be performed as well, this would result in caching of files on the nodes used in the context of a slurm environment.
-        
-    bm_config: dict
-        The configuration of the benchmark file with all it's adjacent information like source code, commands and such.
     """
     
     handler_id      : str
     id              : str
     run_config      : dict
+    bm_config       : dict
+    nodes           : int
     parallel        : bool
     par_backend     : None | str
     ranks           : int
@@ -95,12 +100,14 @@ class BenchmarkManager:
     chunksize_var   : list
     iterations      : int
     internal_i      : int
-    bm_config       : dict
     
     
     def __init__(self, 
                  handler_id     : str, 
-                 run_config     : dict, 
+                 run_config     : dict,
+                 bm_config      : dict,
+                 nodes          : int,
+                 slurm_options  : None | str,
                  parallel       : bool,
                  collective     : None | bool, 
                  ranks          : int, 
@@ -109,14 +116,14 @@ class BenchmarkManager:
                  use_path       : Path, 
                  results_path   : Path,
                  requested      : dict, 
-                 bm_config      : dict
                  ):
         
         
         # Object config
         self.handler_id = handler_id
         self.bm_config      = bm_config
-        self.sbatch_config  = "/work/ku0598/k203191/dkrz_dev/slurm-scripts/run-anything.sh"
+        self.sbatch_location= "slurm config"
+        self.slurm_options   = slurm_options
         
         # Source code
         try:
@@ -139,6 +146,7 @@ class BenchmarkManager:
         
         # Benchmark config
         self.run_config     = run_config
+        self.nodes          = nodes
         self.parallel       = parallel
         self.par_backend    = requested["par_backend"]
         self.collective     = collective
@@ -154,28 +162,6 @@ class BenchmarkManager:
             config_par_backend = None
         
         
-        # Assenble ID
-        id_str = (str(run_config) 
-                  + str(config_par_backend) 
-                  + str(self.par_backend) 
-                  + str(self.bm_config["parallel"]) 
-                  + str(parallel) 
-                  + self.bm_config["format"]
-                  + self.format
-                  + str(self.ranks) 
-                  + str(var_to_bm)
-                  + str(collective)
-                  
-                  # Reasoning: If source code changes, do not consider the same benchmark even if it might be functionally the same, could still have an effect in performance
-                  + self.src
-                  )
-        self.id             = hashlib.sha256(id_str.encode()).hexdigest()
-        
-        self.use_path       = use_path
-        self.results_path   = results_path
-        self.dir_path       = Path(f"{self.use_path}/{str(self.id)}")
-        
-        
         datatype    = []
         for _, item in run_config.items():
             if any(isinstance(x, str) for x in item):
@@ -189,10 +175,34 @@ class BenchmarkManager:
         self.internal_i     = 1
         self.no_caching     = False
         self.local          = False
-        self.location       = f"{self.id}.{self.extension}"
+        
+        
+        # Assemble ID
+        id_str = (str(self.run_config) 
+                  + str(config_par_backend) 
+                  + str(self.par_backend) 
+                  + str(self.bm_config["parallel"]) 
+                  + str(self.parallel) 
+                  + self.bm_config["format"]
+                  + self.format
+                  + str(self.ranks) 
+                  + str(self.var_to_bm)
+                  + str(self.collective)
+                  + str(self.nodes)
+                  
+                  # Reasoning: If source code changes, do not consider the same benchmark even if it might be functionally the same, could still have an effect in performance
+                  + self.src
+                  )
+        self.id             = hashlib.sha256(id_str.encode()).hexdigest()
+        
+        self.use_path       = use_path
+        self.results_path   = results_path
+        self.dir_path       = Path(f"{self.use_path}/{str(self.id)}")
         
         
         # Benchmark info 
+        self.location       = f"{self.id}.{self.extension}"
+        
         filesize_per_var    = [(key, calc_size_unit(item[0])) for key, item in run_config.items() if key in self.var_to_bm] 
         
         total_filesize = 0
@@ -213,10 +223,11 @@ class BenchmarkManager:
         self.__profiler     = bool
         
         
-        print(bcolors.OKBLUE +  f"Managing Benchmark with; file-structure: {run_config}, " 
-                                f"datatype: {datatype}, "
-                                f"parallel: {parallel}, " 
-                                f"collective: {collective}, "
+        print(bcolors.OKBLUE +  f"Managing Benchmark with; file-structure: {run_config}, "
+                                f"nodes: {self.nodes}, "
+                                f"datatype: {self.datatype}, "
+                                f"parallel: {self.parallel}, " 
+                                f"collective: {self.collective}, "
                                 f"ranks: {self.ranks}, "
                                 f"par_backend: {self.par_backend}, "
                                 f"language: {self.language}, "
@@ -314,7 +325,7 @@ class BenchmarkManager:
         
         
         if  "SLURM_JOB_ID" in os.environ and self.local == False:
-            create_command = ["sbatch", self.sbatch_config, create_command]
+            create_command = ["sbatch", self.__assemble_sbatch(self.sbatch_location, self.slurm_options), create_command] # type: ignore
         else: 
             create_command = create_command.split()
 
@@ -392,7 +403,7 @@ class BenchmarkManager:
 
 
         if  "SLURM_JOB_ID" in os.environ and self.local is False:
-            run_command = ["sbatch", self.sbatch_config, run_command]
+            run_command = ["sbatch", self.__assemble_sbatch(self.sbatch_location, self.slurm_options), run_command] # type: ignore
 
 
         for i in range(self.iterations):
@@ -830,3 +841,45 @@ int main(int argc, char *argv[])
                         """
             case "c":
                 return ""
+            
+
+    def __assemble_sbatch(self, path: str, slurm_options: str):
+        
+        slurm_options = slurm_options.replace("#SBATCH --nodes=", f"#SBATCH --nodes={self.nodes}")
+        
+        sbatch_location = Path(f"{path}.sh")
+        with open(sbatch_location, "w") as file:
+            file.write(f"""#!/bin/bash
+
+{slurm_options}
+                       
+# Begin of section with executable commands
+set -e
+ls -l
+
+$1
+
+mpi_enabled=$2
+w=true
+
+if [ "$mpi_enabled" = "$w" ]; then
+
+    export OMPI_MCA_osc="ucx"
+    export OMPI_MCA_pml="ucx"
+    export OMPI_MCA_btl="self"
+    export UCX_HANDLE_ERRORS="bt"
+    export OMPI_MCA_pml_ucx_opal_mem_hooks=1
+    
+    export OMPI_MCA_io="romio321"          # basic optimisation of I/O
+    export UCX_TLS="shm,rc_mlx5,rc_x,self" # for jobs using LESS than 150 nodes
+    #export UCX_TLS="shm,dc_mlx5,dc_x,self" # for jobs using MORE than 150 nodes
+    export UCX_UNIFIED_MODE="y"            
+    
+    export OMPI_MCA_coll_tuned_use_dynamic_rules="true"
+    export OMPI_MCA_coll_tuned_alltoallv_algorithm=2
+    
+fi                     
+"""
+)
+            
+            return sbatch_location
