@@ -262,29 +262,44 @@ class BenchmarkManager:
 
  
     def __create_file(self):
-        create = self.create.replace("#MAIN", self.__replace_main(self.language))
         
-        path_to_create_file = Path(f"{self.dir_path}/create.{self.language}")
+        # Get create command
+        create_commands = self.bm_config["create_command"]
+        
+        create_command = ""
+        language = self.language
+        compile = self.compile
+        
+        # I'm to lazy to reimplement creating the given file in c again, so will just reuse easier python code as files should be identical
+        if "lazy" in create_commands:
+            try:
+                create_command  = create_commands["lazy"][0]
+                language        = create_commands["lazy"][1]
+                compile         = create_commands["lazy"][2]
+            except IndexError as e:
+                raise IndentationError(bcolors.FAIL + "Lazy option is not a proper lazy command. A lazy command needs [command, language, compile flag (turn off/on compilation)]." + bcolors.ENDC) from e
+        else:    
+            try:
+                create_command  = create_commands["serial"]
+            except KeyError as e:
+                if self.bm_config["parallel"] == True:
+                    pass
+                else: 
+                    raise e
+        
+        
+        # Create the file that contains code to create the given dataset
+        create = self.create.replace("#MAIN", self.__replace_main(language))
+        
+        path_to_create_file = Path(f"{self.dir_path}/create.{language}")
         with open(path_to_create_file, "w") as file:
             file.write(create)
         
         
-        create_file = f"create.{self.language}"
-        if self.compile == True:
+        create_file = f"create.{language}"
+        if compile == True:
             compiled_file = self.__compile_file(path=path_to_create_file)
             create_file = f"./{compiled_file}"
-        
-        
-        create_commands = self.bm_config["create_command"]
-        
-        create_command = ""
-        try:
-            create_command  = create_commands["serial"]
-        except KeyError as e:
-            if self.bm_config["parallel"] == True:
-                pass
-            else: 
-                raise e
         
         
         if self.par_backend in create_commands.keys():
@@ -311,7 +326,6 @@ class BenchmarkManager:
         
         
         # Transform run config into 4 lists; variables (list(string)), shape (list(list(int))), chunks (list(list(int))) & datatypes (list(string)) 
-        
         flag_variable = "-V"
         if flag_variable not in create_command:
             create_command = create_command + f" {flag_variable}"
@@ -371,6 +385,20 @@ class BenchmarkManager:
 
     def __execute_file(self):
         
+        # Get run command to execute the code with
+        run_commands = self.bm_config["run_command"]
+        
+        run_command = ""
+        try:
+            run_command  = run_commands["serial"]
+        except KeyError as e:
+            if self.bm_config["parallel"] == True:
+                pass
+            else: 
+                raise e
+        
+        
+        # Create the executable to run the benchmark on a given file with
         execute = self.src.replace("#MAIN", self.__replace_main(self.language))
         
         path_to_tmp_file = Path(f"{self.dir_path}/execute.{self.language}")
@@ -382,18 +410,7 @@ class BenchmarkManager:
         if self.compile == True:
             compiled_file = self.__compile_file(path=path_to_tmp_file)
             tmp_file = f"./{compiled_file}"
-        
-        
-        run_commands = self.bm_config["run_command"]
-        
-        run_command = ""
-        try:
-            run_command  = run_commands["serial"]
-        except KeyError as e:
-            if self.bm_config["parallel"] == True:
-                pass
-            else: 
-                raise e
+    
         
         if self.par_backend in run_commands.keys():
             run_command = run_commands[str(self.par_backend)]
