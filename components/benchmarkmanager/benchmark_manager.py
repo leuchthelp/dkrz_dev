@@ -352,7 +352,7 @@ class BenchmarkManager:
         else: 
             create_command = create_command.split()
 
-        print(create_command)
+        #print(create_command)
         p = subprocess.run(create_command, capture_output=True, text=True, cwd=self.dir_path)
         print(p.stderr)
         print(p.stdout)
@@ -375,7 +375,7 @@ class BenchmarkManager:
         compiled_file = f"{path.name}.out"
         compile_command = compile_command + " -Wl,--unresolved-symbols=ignore-in-object-files" + f" -o {compiled_file}"
         
-        print(compile_command)
+        #print(compile_command)
         p = subprocess.run(compile_command.split(), capture_output=True, text=True, cwd=self.dir_path, check=True)
         #print(p.stderr)
         #print(p.stdout)
@@ -452,7 +452,7 @@ class BenchmarkManager:
             run_command = ["sbatch", self.__assemble_sbatch(self.sbatch_location, self.slurm_options), run_command] # type: ignore
 
 
-        print(run_command)
+        #print(run_command)
         for i in range(self.iterations):
             
             if  "SLURM_JOB_ID" in os.environ and self.local == False:
