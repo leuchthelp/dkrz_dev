@@ -848,7 +848,6 @@ int main(int argc, char *argv[])
             free(chunks[i]);
         }
         free(chunks);
-
         break;
     case ARGP_KEY_ARG:
         return 0;
@@ -872,8 +871,6 @@ int main(int argc, char *argv[])
 
         printf("Running hdf5 benchmark for %d iterations reading %ld elements\\n", iterations, size);
         bench(argc, argv, size, vars_to_bm, iterations, location, result);
-        
-        save_list_to_json(result, "<result-path>.json", iterations);
 
         // Free variables to benchmark
         for (int i = 0; i < var_bm_count; i++)
@@ -881,6 +878,9 @@ int main(int argc, char *argv[])
             free(vars_to_bm[i]);
         }
         free(vars_to_bm);
+        
+        save_list_to_json(result, "<result-path>.json", iterations);
+        
         free(result);
         break;
     case ARGP_KEY_ARG:
@@ -888,9 +888,28 @@ int main(int argc, char *argv[])
     default:
         return ARGP_ERR_UNKNOWN;
     }
+    
+    //MPI_FINALIZE
+    
     return 0;
 }
 """         
+
+                case_mpi = """
+        int mpi_rrank;
+        MPI_Comm comm = MPI_COMM_WORLD;
+        MPI_Comm_rank(comm, &mpi_rrank);
+
+        printf("rank: %d \\n", mpi_rrank);
+        if (mpi_rrank == 0)
+        {
+            save_list_to_json(result, "<result-path>.json", iterations);
+        }
+"""               
+                if self.parallel == True and self.par_backend == "MPI":
+                    tmp = tmp.replace("//MPI_FINALIZE", "MPI_Finalize();")
+                    tmp = tmp.replace("save_list_to_json(result, \"<result-path>.json\", iterations);", case_mpi)
+    
                 tmp = tmp.replace("<result-path>", f"{self.results_path.absolute()}/{self.id}")
                 return tmp
            
